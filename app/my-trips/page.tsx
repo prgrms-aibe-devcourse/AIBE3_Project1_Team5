@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { Edit3, Share2, Trash2, MapPin, Calendar, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -53,10 +54,14 @@ const sampleTrips = [
 
 export default function MyTripsPage() {
   const [trips, setTrips] = useState(sampleTrips);
+  const router = useRouter();
 
   const handleEdit = (tripId: number) => {
-    console.log('편집:', tripId);
-    // 편집 로직 구현
+    router.push(`/my-trips/edit/${tripId}`);
+  };
+
+  const handleCardClick = (tripId: number) => {
+    router.push(`/my-trips/edit/${tripId}`);
   };
 
   const handleShare = (tripId: number) => {
@@ -147,7 +152,11 @@ export default function MyTripsPage() {
         {trips.length > 0 ? (
           <div className="space-y-4">
             {trips.map((trip) => (
-              <Card key={trip.id} className="overflow-hidden hover:shadow-lg transition-shadow">
+              <Card
+                key={trip.id}
+                className="overflow-hidden hover:shadow-lg transition-shadow cursor-pointer"
+                onClick={() => handleCardClick(trip.id)}
+              >
                 <CardContent className="p-0">
                   <div className="flex">
                     {/* Left Side - Trip Info */}
@@ -181,7 +190,10 @@ export default function MyTripsPage() {
                         <Button
                           variant="outline"
                           size="sm"
-                          onClick={() => handleEdit(trip.id)}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleEdit(trip.id);
+                          }}
                           className="flex items-center"
                         >
                           <Edit3 className="h-4 w-4 mr-1" />
