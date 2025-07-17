@@ -114,7 +114,7 @@ export default function Navigation() {
                     로그인
                   </Button>
                 </Link>
-                <Link href="/singup">
+                <Link href="/signup">
                   <Button size="sm" className="bg-blue-600 hover:bg-blue-700">
                     회원가입
                   </Button>
@@ -183,7 +183,7 @@ export default function Navigation() {
                       로그인
                     </Button>
                   </Link>
-                  <Link href="/singup">
+                  <Link href="/signup">
                     <Button size="sm" className="w-full bg-blue-600 hover:bg-blue-700">
                       회원가입
                     </Button>
