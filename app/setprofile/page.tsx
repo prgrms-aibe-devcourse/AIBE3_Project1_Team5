@@ -92,7 +92,7 @@ export default function SetProfilePage() {
           <CardHeader className="text-center">
             <CardTitle className="text-2xl font-bold text-gray-900">프로필 설정</CardTitle>
             <CardDescription className="text-gray-600">
-              GitHub로 로그인하셨습니다. 이름을 입력해주세요.
+              소셜 로그인으로 가입하셨습니다. 이름을 입력해주세요.
             </CardDescription>
           </CardHeader>
           <CardContent>

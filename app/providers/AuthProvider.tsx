@@ -20,6 +20,7 @@ interface AuthContextType {
   signUp: (email: string, password: string, name?: string) => Promise<{ error: Error | null }>;
   signIn: (email: string, password: string) => Promise<{ error: Error | null }>;
   signInWithGithub: () => Promise<{ error: Error | null }>;
+  signInWithGoogle: () => Promise<{ error: Error | null }>;
   refreshProfile: () => Promise<void>;
   signOut: () => Promise<void>;
 }
@@ -151,6 +152,29 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return { error };
   };
 
+  const signInWithGoogle = async () => {
+    setIsLoading(true);
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: {
+        redirectTo: `${window.location.origin}/setprofile`,
+      },
+    });
+
+    if (!error) {
+      // Google 로그인 성공 시 profile 갱신
+      const user = (await supabase.auth.getUser()).data.user;
+      if (user) {
+        const profileData = await getProfile(user.id);
+        setProfile(profileData);
+      }
+    }
+
+    setIsLoading(false);
+    router.push('/');
+    return { error };
+  };
+
   const refreshProfile = async () => {
     if (user) {
       const profileData = await getProfile(user.id);
@@ -170,6 +194,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     signUp,
     signIn,
     signInWithGithub,
+    signInWithGoogle,
     refreshProfile,
     signOut,
   };
