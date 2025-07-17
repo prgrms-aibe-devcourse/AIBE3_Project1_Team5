@@ -1,18 +1,11 @@
 import { useState } from 'react';
-import {
-  isValidName,
-  isValidEmail,
-  isValidPassword,
-  isPasswordMatch,
-  isNameDuplicated,
-} from '@/lib/authValidator';
+import { isValidName, isValidEmail, isValidPassword, isPasswordMatch } from '@/lib/authValidator';
 
 export function useInputValidator() {
   const [nameError, setNameError] = useState('');
   const [emailError, setEmailError] = useState('');
   const [passwordError, setPasswordError] = useState('');
   const [confirmPasswordError, setConfirmPasswordError] = useState('');
-  const [isCheckingNameDuplicate, setIsCheckingNameDuplicate] = useState(false);
 
   const handleNameChange = (value: string) => {
     if (!value.trim()) setNameError('이름을 입력해주세요.');
@@ -45,23 +38,6 @@ export function useInputValidator() {
     else setConfirmPasswordError('');
   };
 
-  // 이름 중복확인
-  const checkNameDuplicate = async (name: string): Promise<boolean> => {
-    setIsCheckingNameDuplicate(true);
-    try {
-      const duplicated = await isNameDuplicated(name);
-      if (duplicated) {
-        setNameError('이미 사용 중인 이름입니다.');
-        return true;
-      } else {
-        setNameError('');
-        return false;
-      }
-    } finally {
-      setIsCheckingNameDuplicate(false);
-    }
-  };
-
   return {
     nameError,
     emailError,
@@ -75,7 +51,5 @@ export function useInputValidator() {
     setEmailError,
     setPasswordError,
     setConfirmPasswordError,
-    checkNameDuplicate,
-    isCheckingNameDuplicate,
   };
 }

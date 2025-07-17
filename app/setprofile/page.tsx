@@ -10,7 +10,6 @@ import { useAuth } from '@/app/providers/AuthProvider';
 import { supabase } from '@/lib/supabase';
 import Link from 'next/link';
 import { useInputValidator } from '@/hooks/useInputValidator';
-import { NicknameInput } from '@/app/components/inputForm/NicknameInput';
 
 export default function SetProfilePage() {
   const [name, setName] = useState('');
@@ -19,10 +18,7 @@ export default function SetProfilePage() {
   const [error, setError] = useState('');
   const router = useRouter();
   const { user, profile, refreshProfile } = useAuth();
-  const { nameError, handleNameChange, checkNameDuplicate, isCheckingNameDuplicate } =
-    useInputValidator();
-  const [isNameChecked, setIsNameChecked] = useState(false);
-  const [nameCheckMessage, setNameCheckMessage] = useState('');
+  const { nameError, handleNameChange } = useInputValidator();
 
   useEffect(() => {
     // 로그인되지 않은 사용자는 로그인 페이지로 리다이렉트
@@ -36,11 +32,12 @@ export default function SetProfilePage() {
     setError('');
     // 이름 관련 에러는 nameError로만 관리 (전역 에러 메시지로 setError 사용하지 않음)
     if (nameError) return;
+    // 이름 관련 에러는 nameError로만 관리 (전역 에러 메시지로 setError 사용하지 않음)
+    if (nameError) return;
     if (!user) {
       setError('사용자정보를 찾을 수 없습니다.');
       return;
     }
-
     setIsSubmitting(true);
     try {
       // profiles 테이블에 프로필 생성
@@ -119,22 +116,28 @@ export default function SetProfilePage() {
           </CardHeader>
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-4">
-              {/* Nickname Input */}
-              <NicknameInput
-                value={name}
-                onChange={(value: string) => {
-                  setName(value);
-                  handleNameChange(value);
-                  setIsNameChecked(false);
-                  setNameCheckMessage('');
-                }}
-                onCheckDuplicate={handleNameCheck}
-                isChecking={isCheckingNameDuplicate}
-                error={nameError}
-                checkMessage={
-                  !nameError && isNameChecked && nameCheckMessage ? nameCheckMessage : ''
-                }
-              />
+              {/* Name Input */}
+              <div className="space-y-2">
+                <label htmlFor="name" className="text-sm font-medium text-gray-700">
+                  이름
+                </label>
+                <div className="relative">
+                  <User className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                  <Input
+                    id="name"
+                    type="text"
+                    placeholder="홍길동"
+                    value={name}
+                    onChange={(e) => {
+                      setName(e.target.value);
+                      handleNameChange(e.target.value);
+                    }}
+                    className="pl-10"
+                    required
+                  />
+                </div>
+                {nameError && <div className="text-red-500 text-xs mt-1">{nameError}</div>}
+              </div>
 
               {/* Error Message */}
               {error && (
@@ -145,7 +148,7 @@ export default function SetProfilePage() {
               <Button
                 type="submit"
                 className="w-full bg-blue-600 hover:bg-blue-700 text-white py-3 rounded-lg font-medium"
-                disabled={isSubmitting}
+                disabled={isSubmitting || !!nameError}
               >
                 {isSubmitting ? '설정 중...' : '프로필 설정 완료'}
                 {isSubmitting ? '설정 중...' : '프로필 설정 완료'}
