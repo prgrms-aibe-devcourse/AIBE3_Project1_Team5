@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useAuth } from '@/app/providers/AuthProvider';
 import Link from 'next/link';
+import { useInputValidator } from '@/hooks/useInputValidator';
 
 export default function SignUpPage() {
   const [name, setName] = useState('');
@@ -19,32 +20,42 @@ export default function SignUpPage() {
   const [error, setError] = useState('');
 
   const { signUp } = useAuth();
+  const {
+    nameError,
+    emailError,
+    passwordError,
+    confirmPasswordError,
+    handleNameChange,
+    handleEmailChange,
+    handlePasswordChange,
+    handleConfirmPasswordChange,
+  } = useInputValidator();
+
+  // 모든 필드가 채워져 있고, 에러가 없을 때만 활성화
+  const isFormValid =
+    name.trim() &&
+    email.trim() &&
+    password.trim() &&
+    confirmPassword.trim() &&
+    !nameError &&
+    !emailError &&
+    !passwordError &&
+    !confirmPasswordError;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
 
-    // 유효성 검사
-    if (!name.trim()) {
-      setError('이름을 입력해주세요.');
-      return;
-    }
-
-    if (password !== confirmPassword) {
-      setError('비밀번호가 일치하지 않습니다.');
-      return;
-    }
-
-    if (password.length < 6) {
-      setError('비밀번호는 최소 6자 이상이어야 합니다.');
-      return;
-    }
-
-    if (!email || !password) {
+    // 방어코드: 모든 필드 입력 여부
+    if (!name.trim() || !email.trim() || !password.trim() || !confirmPassword.trim()) {
       setError('모든 필드를 입력해주세요.');
       return;
     }
-
+    // 방어코드: 각 필드별 에러
+    if (nameError || emailError || passwordError || confirmPasswordError) {
+      setError('입력값을 다시 확인해주세요.');
+      return;
+    }
     setIsSubmitting(true);
     try {
       const { error } = await signUp(email, password, name);
@@ -88,11 +99,15 @@ export default function SignUpPage() {
                     type="text"
                     placeholder="홍길동"
                     value={name}
-                    onChange={(e) => setName(e.target.value)}
+                    onChange={(e) => {
+                      setName(e.target.value);
+                      handleNameChange(e.target.value);
+                    }}
                     className="pl-10"
                     required
                   />
                 </div>
+                {nameError && <div className="text-red-500 text-xs mt-1">{nameError}</div>}
               </div>
 
               {/* Email Input */}
@@ -107,11 +122,15 @@ export default function SignUpPage() {
                     type="email"
                     placeholder="your@email.com"
                     value={email}
-                    onChange={(e) => setEmail(e.target.value)}
+                    onChange={(e) => {
+                      setEmail(e.target.value);
+                      handleEmailChange(e.target.value);
+                    }}
                     className="pl-10"
                     required
                   />
                 </div>
+                {emailError && <div className="text-red-500 text-xs mt-1">{emailError}</div>}
               </div>
 
               {/* Password Input */}
@@ -126,7 +145,10 @@ export default function SignUpPage() {
                     type={showPassword ? 'text' : 'password'}
                     placeholder="최소 6자 이상"
                     value={password}
-                    onChange={(e) => setPassword(e.target.value)}
+                    onChange={(e) => {
+                      setPassword(e.target.value);
+                      handlePasswordChange(e.target.value, confirmPassword);
+                    }}
                     className="pl-10 pr-10"
                     required
                   />
@@ -138,6 +160,7 @@ export default function SignUpPage() {
                     {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                   </button>
                 </div>
+                {passwordError && <div className="text-red-500 text-xs mt-1">{passwordError}</div>}
               </div>
 
               {/* Confirm Password Input */}
@@ -152,7 +175,10 @@ export default function SignUpPage() {
                     type={showConfirmPassword ? 'text' : 'password'}
                     placeholder="비밀번호를 다시 입력하세요"
                     value={confirmPassword}
-                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    onChange={(e) => {
+                      setConfirmPassword(e.target.value);
+                      handleConfirmPasswordChange(password, e.target.value);
+                    }}
                     className="pl-10 pr-10"
                     required
                   />
@@ -168,6 +194,9 @@ export default function SignUpPage() {
                     )}
                   </button>
                 </div>
+                {confirmPasswordError && (
+                  <div className="text-red-500 text-xs mt-1">{confirmPasswordError}</div>
+                )}
               </div>
 
               {/* Error Message */}
@@ -179,7 +208,7 @@ export default function SignUpPage() {
               <Button
                 type="submit"
                 className="w-full bg-blue-600 hover:bg-blue-700 text-white py-3 rounded-lg font-medium"
-                disabled={isSubmitting}
+                disabled={isSubmitting || !isFormValid}
               >
                 {isSubmitting ? '가입 중...' : '회원가입'}
               </Button>

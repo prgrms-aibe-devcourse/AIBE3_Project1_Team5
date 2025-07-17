@@ -8,6 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { useAuth } from '@/app/providers/AuthProvider';
 import Link from 'next/link';
 import SocialLogin from '../components/SocialLogin';
+import { useInputValidator } from '@/hooks/useInputValidator';
 
 export default function LoginPage() {
   const [email, setEmail] = useState('');
@@ -16,16 +17,20 @@ export default function LoginPage() {
   const [error, setError] = useState('');
 
   const { signIn, isLoading } = useAuth();
+  const { emailError, passwordError, handleEmailChange, handlePasswordChange } =
+    useInputValidator();
+
+  // 모든 필드가 채워져 있고, 에러가 없을 때만 활성화
+  const isFormValid = !emailError && !passwordError;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
-    // 유효성 검사
-    if (!email || !password) {
-      setError('모든 필드를 입력해주세요.');
+    // 방어코드: 각 필드별 에러
+    if (emailError || passwordError) {
+      setError('입력값을 다시 확인해주세요.');
       return;
     }
-
     try {
       const { error } = await signIn(email, password);
       if (error) {
@@ -79,11 +84,15 @@ export default function LoginPage() {
                     type="email"
                     placeholder="your@email.com"
                     value={email}
-                    onChange={(e) => setEmail(e.target.value)}
+                    onChange={(e) => {
+                      setEmail(e.target.value);
+                      handleEmailChange(e.target.value);
+                    }}
                     className="pl-10"
                     required
                   />
                 </div>
+                {emailError && <div className="text-red-500 text-xs mt-1">{emailError}</div>}
               </div>
 
               {/* Password Input */}
@@ -98,7 +107,10 @@ export default function LoginPage() {
                     type={showPassword ? 'text' : 'password'}
                     placeholder="비밀번호를 입력하세요"
                     value={password}
-                    onChange={(e) => setPassword(e.target.value)}
+                    onChange={(e) => {
+                      setPassword(e.target.value);
+                      handlePasswordChange(e.target.value, '');
+                    }}
                     className="pl-10 pr-10"
                     required
                   />
@@ -110,6 +122,7 @@ export default function LoginPage() {
                     {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                   </button>
                 </div>
+                {passwordError && <div className="text-red-500 text-xs mt-1">{passwordError}</div>}
               </div>
 
               {/* Error Message */}
@@ -121,7 +134,7 @@ export default function LoginPage() {
               <Button
                 type="submit"
                 className="w-full bg-blue-600 hover:bg-blue-700 text-white py-3 rounded-lg font-medium"
-                disabled={isLoading}
+                disabled={isLoading || !isFormValid}
               >
                 {isLoading ? '로그인 중...' : '로그인'}
               </Button>
