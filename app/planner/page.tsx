@@ -23,7 +23,7 @@ export default function PlannerPage() {
           <div className="flex flex-col items-center text-center">
             <div className="relative mb-6">
               <img
-                src="/placeholder.svg?height=300&width=400"
+                src="https://exbimetzhyeddpkjnlyt.supabase.co/storage/v1/object/public/trips//christin-hume-mfB1B1s4sMc-unsplash.jpg"
                 alt="여행 계획"
                 className="w-full h-64 object-cover rounded-2xl shadow-lg"
               />
@@ -31,7 +31,7 @@ export default function PlannerPage() {
             </div>
             <div className="bg-white rounded-xl p-6 shadow-sm">
               <Calendar className="h-8 w-8 text-blue-600 mx-auto mb-3" />
-              <h3 className="text-lg font-semibold text-gray-900 mb-2">체계적인 일정 관리</h3>
+              <h3 className="text-lg font-bold text-gray-900 mb-2">체계적인 일정 관리</h3>
               <p className="text-gray-600 text-sm">
                 날짜별로 세부 일정을 계획하고 시간대별 활동을 체계적으로 관리할 수 있습니다.
               </p>
@@ -42,17 +42,24 @@ export default function PlannerPage() {
           <div className="flex flex-col items-center text-center">
             <div className="relative mb-6">
               <img
-                src="/placeholder.svg?height=300&width=400"
+                src="https://exbimetzhyeddpkjnlyt.supabase.co/storage/v1/object/public/trips//daniel-sessler-KXQ04V4cArg-unsplash.jpg"
                 alt="여행지 선택"
-                className="w-full h-64 object-cover rounded-2xl shadow-lg"
+                className="w-full h-80 object-cover rounded-2xl shadow-lg" // 기존 h-64 → h-80로 확대
               />
               <div className="absolute inset-0 bg-green-600/20 rounded-2xl"></div>
             </div>
-            <div className="bg-white rounded-xl p-6 shadow-sm">
-              <MapPin className="h-8 w-8 text-green-600 mx-auto mb-3" />
-              <h3 className="text-lg font-semibold text-gray-900 mb-2">다양한 여행지 선택</h3>
-              <p className="text-gray-600 text-sm">
-                전 세계 여행지를 검색하고 선택하여 나만의 특별한 여행 루트를 만들어보세요.
+            <div className="bg-white rounded-xl p-4 shadow-sm max-w-xs">
+              {' '}
+              {/* padding 줄이고, max-width로 더 컴팩트하게 */}
+              <MapPin className="h-7 w-7 text-green-600 mx-auto mb-2" /> {/* 아이콘도 살짝 축소 */}
+              <h3 className="text-base font-semibold text-gray-900 mb-1">
+                다양한 여행지 선택
+              </h3>{' '}
+              {/* 폰트 크기 축소 */}
+              <p className="text-gray-600 text-xs">
+                {' '}
+                {/* 폰트 크기 축소 */}전 세계 여행지를 검색하고 선택하여 나만의 특별한 여행 루트를
+                만들어보세요.
               </p>
             </div>
           </div>
@@ -61,7 +68,7 @@ export default function PlannerPage() {
           <div className="flex flex-col items-center text-center">
             <div className="relative mb-6">
               <img
-                src="/placeholder.svg?height=300&width=400"
+                src="https://exbimetzhyeddpkjnlyt.supabase.co/storage/v1/object/public/trips//sergio-capuzzimati-QSRbcxl7BfE-unsplash.jpg"
                 alt="그룹 여행"
                 className="w-full h-64 object-cover rounded-2xl shadow-lg"
               />
