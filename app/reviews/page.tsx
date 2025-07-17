@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Star, ThumbsUp, MessageCircle, Search, MapPin, Calendar } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -19,23 +19,41 @@ import { useAuth } from '../providers/AuthProvider';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 
-const reviews = [
-  {
-    id: 1,
-    user: {
-      name: '김여행',
-      avatar: '/placeholder.svg?height=40&width=40',
-      level: '여행 마니아',
-    },
-    destination: '제주도',
-    score: 5,
-    content:
-      '제주도 여행이 정말 완벽했어요! 특히 성산일출봉에서 본 일출이 너무 아름다웠습니다. 현지 맛집들도 정말 맛있었고, 렌터카로 돌아다니기도 편했어요. 다음에 또 가고 싶은 곳이에요.',
-    images: ['/placeholder.svg?height=200&width=300', '/placeholder.svg?height=200&width=300'],
-  },
-];
+type Review = {
+  id: string;
+  content: string;
+  score: number;
+  created_at: string;
+  review_img: { img_url: string }[];
+};
 
 export default function ReviewsPage() {
+  const [reviews, setReviews] = useState<Review[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchReviews = async () => {
+      setIsLoading(true);
+      const { data, error } = await supabase.from('review').select(`
+        id,
+        content,
+        score,
+        created_at,
+        review_img(
+          img_url
+        )
+      `);
+      if (error) {
+        alert('리뷰 데이터를 불러오지 못했습니다.');
+      } else {
+        setReviews(data || []);
+        console.log(data);
+      }
+      setIsLoading(false);
+    };
+    fetchReviews();
+  }, []);
+
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedDestination, setSelectedDestination] = useState('전체');
   const [sortBy, setSortBy] = useState('latest');
@@ -51,7 +69,8 @@ export default function ReviewsPage() {
 
   // const filteredReviews = reviews.filter((review) => {
   //   const matchesSearch = review.content.toLowerCase().includes(searchQuery.toLowerCase());
-  //   const matchesDestination = !selectedDestination || review.destination === selectedDestination;
+  //   const matchesDestination =
+  //     selectedDestination === '전체' || review.travels?.name_kr === selectedDestination;
   //   return matchesSearch && matchesDestination;
   // });
 
@@ -83,79 +102,84 @@ export default function ReviewsPage() {
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+    setIsLoading(true);
     // console.log('submit');
 
-    // 1. 후기 등록
-    const { data: review, error: reviewError } = await supabase
-      .from('review')
-      .insert({
-        content,
-        score,
-        user_id: user?.id,
-        travel_id: 'e40b1a63-2654-4ce5-a6e9-755b4e50d0a8', //임의의 UUID
-      })
-      .select()
-      .single();
+    try {
+      // 1. 후기 등록
+      const { data: review, error: reviewError } = await supabase
+        .from('review')
+        .insert({
+          content,
+          score,
+          user_id: user?.id,
+          travel_id: '56c0d4b5-49b6-45e0-beda-a1db53b752bd', //임의의 UUID
+        })
+        .select()
+        .single();
 
-    if (reviewError) {
-      alert(reviewError.message);
-      return;
-    }
+      if (reviewError) {
+        alert(reviewError.message);
+        return;
+      }
 
-    // 2. 이미지가 있으면 storage에 업로드 후 review_img 테이블에 저장
-    if (images.length > 0) {
-      const file = images[0];
-      const fileExt = file.name.split('.').pop();
-      const filePath = `review_${review.id}_${Date.now()}.${fileExt}`;
+      // 2. 이미지가 있으면 storage에 업로드 후 review_img 테이블에 저장
+      if (images.length > 0) {
+        const file = images[0];
+        const fileExt = file.name.split('.').pop();
+        const filePath = `review_${review.id}_${Date.now()}.${fileExt}`;
 
-      // Storage 업로드
-      const { data: storageData, error: storageError } = await supabase.storage
-        .from('reviewimg')
-        .upload(filePath, file, {
-          cacheControl: '3600',
-          upsert: false,
+        // Storage 업로드
+        const { data: storageData, error: storageError } = await supabase.storage
+          .from('reviewimg')
+          .upload(filePath, file, {
+            cacheControl: '3600',
+            upsert: false,
+          });
+
+        if (storageError) {
+          alert('이미지 업로드 실패: ' + storageError.message);
+          return;
+        }
+
+        // Public URL 가져오기
+        const { data: publicUrlData } = supabase.storage.from('reviewimg').getPublicUrl(filePath);
+
+        const imgUrl = publicUrlData?.publicUrl;
+
+        // img 테이블에 저장
+        const { error: imgError } = await supabase.from('review_img').insert({
+          img_url: imgUrl,
+          file_path: filePath,
+          order: 1,
+          review_id: review.id,
         });
 
-      if (storageError) {
-        alert('이미지 업로드 실패: ' + storageError.message);
-        return;
+        if (imgError) {
+          alert('이미지 DB 저장 실패: ' + imgError.message);
+          return;
+        }
       }
 
-      // Public URL 가져오기
-      const { data: publicUrlData } = supabase.storage.from('reviewimg').getPublicUrl(filePath);
-
-      const imgUrl = publicUrlData?.publicUrl;
-
-      // img 테이블에 저장
-      const { error: imgError } = await supabase.from('review_img').insert({
-        img_url: imgUrl,
-        file_path: filePath,
-        order: 1,
-        review_id: review.id,
-      });
-
-      if (imgError) {
-        alert('이미지 DB 저장 실패: ' + imgError.message);
-        return;
-      }
+      alert('후기 등록 성공');
+      router.refresh();
+    } finally {
+      setIsLoading(false);
     }
-
-    alert('후기 등록 성공');
-    router.push(`/reviews`);
   };
 
   // 후기 관련 처리 중일 때 로딩 화면 표시
-  // if (false) {
-  //   return (
-  //     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center p-4">
-  //       <div className="text-center">
-  //         <div className="animate-spin rounded-full h-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-  //         <h2 className="text-xl font-semibold text-gray-900">처리 중...</h2>
-  //         <p className="text-gray-600">잠시만 기다려주세요.</p>
-  //       </div>
-  //     </div>
-  //   );
-  // }
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center p-4">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <h2 className="text-xl font-semibold text-gray-900">처리 중...</h2>
+          <p className="text-gray-600">잠시만 기다려주세요.</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-50 py-8">
@@ -300,73 +324,65 @@ export default function ReviewsPage() {
           </Card>
         )}
 
-        {/* 후기 리스트 (일단 유지하지만 기능 구현에 따라 삭제 예정) */}
-        {/* <div className="space-y-6">
-          {filteredReviews.map((review) => (
+        {/* 후기 리스트*/}
+        <div className="space-y-6">
+          {reviews.map((review) => (
             <Card key={review.id} className="overflow-hidden">
-              <CardHeader>
-                <div className="flex items-start justify-between">
-                  <div className="flex items-center space-x-3">
-                    <Avatar>
-                      <AvatarImage src={review.user.avatar || '/placeholder.svg'} />
-                      <AvatarFallback>{review.user.name[0]}</AvatarFallback>
-                    </Avatar>
-                    <div>
-                      <div className="flex items-center space-x-2">
-                        <h3 className="font-semibold">{review.user.name}</h3>
-                        <Badge variant="secondary" className="text-xs">
-                          {review.user.level}
-                        </Badge>
-                      </div>
-                      <div className="flex items-center space-x-4 text-sm text-gray-500 mt-1">
-                        <div className="flex items-center space-x-1">
-                          <MapPin className="h-3 w-3" />
-                          <span>{review.destination}</span>
+              <div className="flex flex-row items-stretch">
+                {/* 이미지 영역 */}
+                <div className="w-40 flex-shrink-0 flex items-center justify-center bg-gray-100">
+                  <img
+                    src={
+                      review.review_img[0]?.img_url == undefined
+                        ? 'https://exbimetzhyeddpkjnlyt.supabase.co/storage/v1/object/public/reviewimg//tmp.jpeg'
+                        : review.review_img[0].img_url
+                    }
+                    alt="여행 사진"
+                    className="w-36 h-36 object-cover rounded-lg"
+                  />
+                </div>
+                {/* 텍스트 영역 */}
+                <div className="flex-1 flex flex-col justify-between p-4">
+                  <CardHeader className="p-0 pb-2">
+                    <div className="flex items-start justify-between">
+                      <div className="flex items-center space-x-3">
+                        <Avatar>
+                          <AvatarFallback>U</AvatarFallback>
+                        </Avatar>
+                        <div>
+                          <div className="flex items-center space-x-2">
+                            <h3 className="font-semibold">익명</h3>
+                          </div>
                         </div>
                       </div>
+                      <div className="flex items-center space-x-1">
+                        {[1, 2, 3, 4, 5].map((star) => (
+                          <span key={star} className="relative inline-block">
+                            <Star className="h-4 w-4 text-gray-300" />
+                            {review.score >= star && (
+                              <Star className="h-4 w-4 text-yellow-400 fill-current absolute left-0 top-0" />
+                            )}
+                            {review.score >= star - 0.5 && review.score < star && (
+                              <span
+                                className="absolute left-0 top-0 overflow-hidden"
+                                style={{ width: '50%' }}
+                              >
+                                <Star className="h-4 w-4 text-yellow-400 fill-current" />
+                              </span>
+                            )}
+                          </span>
+                        ))}
+                      </div>
                     </div>
-                  </div>
-                  <div className="flex items-center space-x-1">
-                    {[...Array(5)].map((_, i) => (
-                      <Star
-                        key={i}
-                        className={`h-4 w-4 ${
-                          i < review.score ? 'text-yellow-400 fill-current' : 'text-gray-300'
-                        }`}
-                      />
-                    ))}
-                  </div>
+                  </CardHeader>
+                  <CardContent className="p-0 pt-2">
+                    <p className="text-gray-700 mb-4 leading-relaxed">{review.content}</p>
+                  </CardContent>
                 </div>
-              </CardHeader>
-              <CardContent>
-                <p className="text-gray-700 mb-4 leading-relaxed">{review.content}</p>
-
-
-                {review.images.length > 0 && (
-                  <div className="grid grid-cols-2 md:grid-cols-3 gap-2 mb-4">
-                    {review.images.map((image, index) => (
-                      <img
-                        key={index}
-                        src={image || '/placeholder.svg'}
-                        alt={`여행 사진 ${index + 1}`}
-                        className="w-full h-32 object-cover rounded-lg cursor-pointer hover:opacity-90 transition-opacity"
-                      />
-                    ))}
-                  </div>
-                )}
-              </CardContent>
+              </div>
             </Card>
           ))}
-        </div> */}
-
-        {/* {filteredReviews.length === 0 && (
-          <Card>
-            <CardContent className="text-center py-12">
-              <p className="text-gray-500 mb-4">검색 결과가 없습니다.</p>
-              <Button onClick={() => setShowWriteReview(true)}>첫 번째 후기를 작성해보세요</Button>
-            </CardContent>
-          </Card>
-        )} */}
+        </div>
       </div>
     </div>
   );
