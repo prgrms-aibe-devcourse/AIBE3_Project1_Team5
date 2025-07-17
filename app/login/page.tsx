@@ -9,6 +9,8 @@ import { useAuth } from '@/app/providers/AuthProvider';
 import Link from 'next/link';
 import SocialLogin from '../components/SocialLogin';
 import { useInputValidator } from '@/hooks/useInputValidator';
+import { EmailInput } from '@/app/components/inputForm/EmailInput';
+import { PasswordInput } from '@/app/components/inputForm/PasswordInput';
 
 export default function LoginPage() {
   const [email, setEmail] = useState('');
@@ -81,57 +83,27 @@ export default function LoginPage() {
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-4">
               {/* Email Input */}
-              <div className="space-y-2">
-                <label htmlFor="email" className="text-sm font-medium text-gray-700">
-                  이메일
-                </label>
-                <div className="relative">
-                  <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-                  <Input
-                    id="email"
-                    type="email"
-                    placeholder="your@email.com"
-                    value={email}
-                    onChange={(e) => {
-                      setEmail(e.target.value);
-                      handleEmailChange(e.target.value);
-                    }}
-                    className="pl-10"
-                    required
-                  />
-                </div>
-                {emailError && <div className="text-red-500 text-xs mt-1">{emailError}</div>}
-              </div>
+              <EmailInput
+                value={email}
+                onChange={(value: string) => {
+                  setEmail(value);
+                  handleEmailChange(value);
+                }}
+                error={emailError}
+              />
 
               {/* Password Input */}
-              <div className="space-y-2">
-                <label htmlFor="password" className="text-sm font-medium text-gray-700">
-                  비밀번호
-                </label>
-                <div className="relative">
-                  <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-                  <Input
-                    id="password"
-                    type={showPassword ? 'text' : 'password'}
-                    placeholder="비밀번호를 입력하세요"
-                    value={password}
-                    onChange={(e) => {
-                      setPassword(e.target.value);
-                      handlePasswordChange(e.target.value, '');
-                    }}
-                    className="pl-10 pr-10"
-                    required
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                  >
-                    {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                  </button>
-                </div>
-                {passwordError && <div className="text-red-500 text-xs mt-1">{passwordError}</div>}
-              </div>
+              <PasswordInput
+                value={password}
+                onChange={(value: string) => {
+                  setPassword(value);
+                  handlePasswordChange(value, '');
+                }}
+                error={passwordError}
+                showPassword={showPassword}
+                onToggleShow={() => setShowPassword(!showPassword)}
+                placeholder="비밀번호를 입력하세요"
+              />
 
               {/* Error Message */}
               {error && (

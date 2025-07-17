@@ -10,6 +10,7 @@ import { useAuth } from '@/app/providers/AuthProvider';
 import { supabase } from '@/lib/supabase';
 import Link from 'next/link';
 import { useInputValidator } from '@/hooks/useInputValidator';
+import { NicknameInput } from '@/app/components/inputForm/NicknameInput';
 
 export default function SetProfilePage() {
   const [name, setName] = useState('');
@@ -18,7 +19,10 @@ export default function SetProfilePage() {
   const [error, setError] = useState('');
   const router = useRouter();
   const { user, profile, refreshProfile } = useAuth();
-  const { nameError, handleNameChange } = useInputValidator();
+  const { nameError, handleNameChange, checkNameDuplicate, isCheckingNameDuplicate } =
+    useInputValidator();
+  const [isNameChecked, setIsNameChecked] = useState(false);
+  const [nameCheckMessage, setNameCheckMessage] = useState('');
 
   useEffect(() => {
     // 로그인되지 않은 사용자는 로그인 페이지로 리다이렉트
@@ -116,28 +120,22 @@ export default function SetProfilePage() {
           </CardHeader>
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-4">
-              {/* Name Input */}
-              <div className="space-y-2">
-                <label htmlFor="name" className="text-sm font-medium text-gray-700">
-                  이름
-                </label>
-                <div className="relative">
-                  <User className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-                  <Input
-                    id="name"
-                    type="text"
-                    placeholder="홍길동"
-                    value={name}
-                    onChange={(e) => {
-                      setName(e.target.value);
-                      handleNameChange(e.target.value);
-                    }}
-                    className="pl-10"
-                    required
-                  />
-                </div>
-                {nameError && <div className="text-red-500 text-xs mt-1">{nameError}</div>}
-              </div>
+              {/* Nickname Input */}
+              <NicknameInput
+                value={name}
+                onChange={(value: string) => {
+                  setName(value);
+                  handleNameChange(value);
+                  setIsNameChecked(false);
+                  setNameCheckMessage('');
+                }}
+                onCheckDuplicate={handleNameCheck}
+                isChecking={isCheckingNameDuplicate}
+                error={nameError}
+                checkMessage={
+                  !nameError && isNameChecked && nameCheckMessage ? nameCheckMessage : ''
+                }
+              />
 
               {/* Error Message */}
               {error && (
