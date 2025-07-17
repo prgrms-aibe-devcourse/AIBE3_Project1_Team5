@@ -1,56 +1,42 @@
-"use client"
+'use client';
 
-import type React from "react"
+import type React from 'react';
 
-import { useState } from "react"
-import { Search, MapPin, Calendar, Users, Star } from "lucide-react"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-
-const popularDestinations = [
-  {
-    id: 1,
-    name: "제주도",
-    country: "대한민국",
-    image: "/placeholder.svg?height=200&width=300",
-    rating: 4.8,
-    description: "아름다운 자연과 독특한 문화가 어우러진 섬",
-  },
-  {
-    id: 2,
-    name: "교토",
-    country: "일본",
-    image: "/placeholder.svg?height=200&width=300",
-    rating: 4.9,
-    description: "전통과 현대가 공존하는 고풍스러운 도시",
-  },
-  {
-    id: 3,
-    name: "파리",
-    country: "프랑스",
-    image: "/placeholder.svg?height=200&width=300",
-    rating: 4.7,
-    description: "로맨틱한 분위기의 예술과 문화의 도시",
-  },
-  {
-    id: 4,
-    name: "발리",
-    country: "인도네시아",
-    image: "/placeholder.svg?height=200&width=300",
-    rating: 4.6,
-    description: "열대 낙원의 휴양지",
-  },
-]
+import { useState, useEffect } from 'react';
+import { Search, MapPin, Calendar, Users, Star } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { supabase } from '@/lib/supabase';
 
 export default function HomePage() {
-  const [searchQuery, setSearchQuery] = useState("")
+  const [searchQuery, setSearchQuery] = useState('');
+  const [destinations, setDestinations] = useState([]);
+
+  //데이터 가져옴
+  const fetchDestinations = async () => {
+    const { data, error } = await supabase
+      .from('travels')
+      .select('*')
+      .order('view_count', { ascending: false }); //view_count 기준으로 정렬
+
+    if (error) {
+      console.error('데이터 가져오기 오류:', error);
+      return;
+    }
+    console.log('✅ Supabase 데이터:', data);
+    setDestinations(data);
+  };
+  //컴포넌트가 처음 마운트 될때 여행지 불러오기
+  useEffect(() => {
+    fetchDestinations();
+  }, []);
 
   const handleSearch = (e: React.FormEvent) => {
-    e.preventDefault()
+    e.preventDefault();
     // 검색 로직 구현
-    console.log("검색:", searchQuery)
-  }
+    console.log('검색:', searchQuery);
+  };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
@@ -73,7 +59,10 @@ export default function HomePage() {
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="flex-1 border-none focus:ring-0 text-lg px-4"
               />
-              <Button type="submit" className="rounded-full px-8 py-3 bg-blue-600 hover:bg-blue-700">
+              <Button
+                type="submit"
+                className="rounded-full px-8 py-3 bg-blue-600 hover:bg-blue-700"
+              >
                 <Search className="h-5 w-5 mr-2" />
                 검색
               </Button>
@@ -103,21 +92,24 @@ export default function HomePage() {
         <div className="max-w-6xl mx-auto">
           <h2 className="text-3xl font-bold text-center mb-12 text-gray-900">인기 여행지</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-            {popularDestinations.map((destination) => (
-              <Card key={destination.id} className="overflow-hidden hover:shadow-lg transition-shadow cursor-pointer">
+            {destinations.map((destination) => (
+              <Card
+                key={destination.id}
+                className="overflow-hidden hover:shadow-lg transition-shadow cursor-pointer"
+              >
                 <div className="relative">
                   <img
-                    src={destination.image || "/placeholder.svg"}
-                    alt={destination.name}
+                    src={destination.image_url || '/placeholder.svg'}
+                    alt={destination.name_kr}
                     className="w-full h-48 object-cover"
                   />
                   <div className="absolute top-4 right-4 bg-white rounded-full px-2 py-1 flex items-center">
                     <Star className="h-4 w-4 text-yellow-400 fill-current" />
-                    <span className="text-sm font-medium ml-1">{destination.rating}</span>
+                    <span className="text-sm font-medium ml-1">{destination.rating_num ?? 0}</span>
                   </div>
                 </div>
                 <CardHeader>
-                  <CardTitle className="text-lg">{destination.name}</CardTitle>
+                  <CardTitle className="text-lg">{destination.name_kr}</CardTitle>
                   <CardDescription className="text-gray-500">{destination.country}</CardDescription>
                 </CardHeader>
                 <CardContent>
@@ -132,7 +124,9 @@ export default function HomePage() {
       {/* Features Section */}
       <section className="py-16 px-4 bg-white">
         <div className="max-w-6xl mx-auto">
-          <h2 className="text-3xl font-bold text-center mb-12 text-gray-900">왜 우리 플랫폼을 선택해야 할까요?</h2>
+          <h2 className="text-3xl font-bold text-center mb-12 text-gray-900">
+            왜 우리 플랫폼을 선택해야 할까요?
+          </h2>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
             <div className="text-center">
               <div className="bg-blue-100 rounded-full w-16 h-16 flex items-center justify-center mx-auto mb-4">
@@ -159,5 +153,5 @@ export default function HomePage() {
         </div>
       </section>
     </div>
-  )
+  );
 }
