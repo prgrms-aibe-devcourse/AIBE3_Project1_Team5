@@ -52,13 +52,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         data: { session },
       } = await supabase.auth.getSession();
       setUser(session?.user ?? null);
-      setIsLoading(false);
+
       if (session?.user) {
         const profileData = await getProfile(session.user.id);
         setProfile(profileData);
       } else {
         setProfile(null);
       }
+
+      // 세션과 프로필 모두 완료된 후에 로딩 상태 해제
+      setIsLoading(false);
     };
     getSession();
 
@@ -66,7 +69,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(async (_event, session) => {
       setUser(session?.user ?? null);
-      setIsLoading(false);
+
       if (session?.user) {
         const profileData = await getProfile(session.user.id);
         setProfile(profileData);
@@ -80,6 +83,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       } else {
         setProfile(null);
       }
+
+      // 세션과 프로필 모두 완료된 후에 로딩 상태 해제
+      setIsLoading(false);
     });
 
     return () => {
@@ -123,9 +129,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         const profileData = await getProfile(user.id);
         setProfile(profileData);
       }
+      // 로그인 성공 시에만 홈화면으로 이동
+      router.push('/');
     }
+    // 로그인 성공/실패와 관계없이 프로필 로딩 완료 후 로딩 상태 해제
     setIsLoading(false);
-    router.push('/');
     return { error };
   };
 
@@ -145,10 +153,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         const profileData = await getProfile(user.id);
         setProfile(profileData);
       }
+      // 로그인 성공 시에만 홈화면으로 이동
+      router.push('/');
     }
 
+    // 로그인 성공/실패와 관계없이 프로필 로딩 완료 후 로딩 상태 해제
     setIsLoading(false);
-    router.push('/');
     return { error };
   };
 
@@ -168,10 +178,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         const profileData = await getProfile(user.id);
         setProfile(profileData);
       }
+      // 로그인 성공 시에만 홈화면으로 이동
+      router.push('/');
     }
 
+    // 로그인 성공/실패와 관계없이 프로필 로딩 완료 후 로딩 상태 해제
     setIsLoading(false);
-    router.push('/');
     return { error };
   };
 
