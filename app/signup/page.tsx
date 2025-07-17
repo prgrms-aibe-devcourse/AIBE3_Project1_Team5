@@ -68,6 +68,19 @@ export default function SignUpPage() {
     }
   };
 
+  // supabase 회원가입 에러 메시지 한글화 함수
+  function getSignUpErrorMessage(error: any) {
+    if (!error) return '';
+    if (
+      error.code === 'user_already_exists' ||
+      error.message?.includes('User already registered')
+    ) {
+      return '이미 가입된 이메일입니다.';
+    }
+    // 기타 에러
+    return '회원가입 중 오류가 발생했습니다.';
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
@@ -89,7 +102,8 @@ export default function SignUpPage() {
     try {
       const { error } = await signUp(email, password, name);
       if (error) {
-        setError(error.message);
+        setError(getSignUpErrorMessage(error));
+        return;
       }
     } catch (err) {
       setError('회원가입 중 오류가 발생했습니다.');
