@@ -16,6 +16,29 @@ import {
 import { Tabs, TabsContent } from '@/components/ui/tabs';
 import { supabase } from '@/lib/supabase';
 
+// 여행지 데이터 타입 정의 (Supabase 테이블 구조에 맞춤)
+interface Destination {
+  id: number;
+  name_kr: string;
+  name_en?: string;
+  country: string;
+  region: string;
+  description?: string;
+  image_url?: string;
+  rating_num?: number;
+  view_count?: number;
+  cost_flight?: number;
+  cost_hotel_per_night?: number;
+  cost_meal_per_day?: number;
+  cost_sightseeing?: number;
+  tips?: string;
+  best_time?: string;
+  weather_spring?: string;
+  weather_summer?: string;
+  weather_autumn?: string;
+  weather_winter?: string;
+}
+
 // 필터 옵션들
 const regions = [
   '전체',
@@ -31,7 +54,8 @@ const regions = [
 const budgets = ['전체', '저예산', '중간예산', '고예산'];
 
 export default function DestinationsPage() {
-  const [destinations, setDestinations] = useState([]);
+  // 타입을 명시적으로 지정
+  const [destinations, setDestinations] = useState<Destination[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedRegion, setSelectedRegion] = useState('전체');
@@ -40,6 +64,7 @@ export default function DestinationsPage() {
   const [showPopularOnly, setShowPopularOnly] = useState(false);
   const [favorites, setFavorites] = useState<number[]>([]);
 
+  // Supabase에서 여행지 데이터 가져오기
   const fetchDestinations = async () => {
     setLoading(true);
     try {
@@ -66,13 +91,26 @@ export default function DestinationsPage() {
   // 필터링 로직
   const filteredDestinations = destinations.filter((destination) => {
     const matchesSearch =
-      destination.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      destination.name_kr?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      destination.name_en?.toLowerCase().includes(searchQuery.toLowerCase()) ||
       destination.country?.toLowerCase().includes(searchQuery.toLowerCase()) ||
       destination.description?.toLowerCase().includes(searchQuery.toLowerCase());
 
     const matchesRegion = selectedRegion === '전체' || destination.region === selectedRegion;
-    const matchesBudget = selectedBudget === '전체' || destination.budget === selectedBudget;
-    const matchesPopular = !showPopularOnly || destination.isPopular;
+
+    // 예산 필터링 - cost 필드들을 기준으로 계산
+    const totalCost =
+      (destination.cost_flight || 0) +
+      (destination.cost_hotel_per_night || 0) +
+      (destination.cost_meal_per_day || 0) +
+      (destination.cost_sightseeing || 0);
+
+    let budgetCategory = '중간예산';
+    if (totalCost < 100000) budgetCategory = '저예산';
+    else if (totalCost > 300000) budgetCategory = '고예산';
+
+    const matchesBudget = selectedBudget === '전체' || budgetCategory === selectedBudget;
+    const matchesPopular = !showPopularOnly || (destination.view_count || 0) > 1000;
 
     return matchesSearch && matchesRegion && matchesBudget && matchesPopular;
   });
@@ -201,11 +239,11 @@ export default function DestinationsPage() {
                   <div className="relative">
                     <img
                       src={destination.image_url || '/placeholder.svg'}
-                      alt={destination._kr}
+                      alt={destination.name_kr}
                       className="w-full h-48 object-cover group-hover:scale-105 transition-transform duration-300"
                     />
                     <div className="absolute top-4 right-4 flex space-x-2">
-                      {destination.isPopular && (
+                      {destination.view_count > 1000 && (
                         <Badge className="bg-red-500 text-white">인기</Badge>
                       )}
                       <Button
@@ -228,9 +266,9 @@ export default function DestinationsPage() {
                     </div>
                     <div className="absolute bottom-4 left-4 bg-white/90 rounded-full px-2 py-1 flex items-center">
                       <Star className="h-4 w-4 text-yellow-400 fill-current mr-1" />
-                      <span className="text-sm font-medium">{destination.rating_num}</span>
+                      <span className="text-sm font-medium">{destination.rating_num || 0}</span>
                       <span className="text-xs text-gray-500 ml-1">
-                        ({destination.reviewCount})
+                        ({destination.view_count || 0})
                       </span>
                     </div>
                   </div>
@@ -244,7 +282,16 @@ export default function DestinationsPage() {
                         </CardDescription>
                       </div>
                       <Badge variant="outline" className="text-xs">
-                        {destination.budget}
+                        {(() => {
+                          const totalCost =
+                            (destination.cost_flight || 0) +
+                            (destination.cost_hotel_per_night || 0) +
+                            (destination.cost_meal_per_day || 0) +
+                            (destination.cost_sightseeing || 0);
+                          if (totalCost < 100000) return '저예산';
+                          if (totalCost > 300000) return '고예산';
+                          return '중간예산';
+                        })()}
                       </Badge>
                     </div>
                   </CardHeader>
@@ -253,14 +300,15 @@ export default function DestinationsPage() {
                       {destination.description}
                     </p>
                     <div className="flex flex-wrap gap-1 mb-3">
-                      {destination.tags?.slice(0, 3).map((tag, index) => (
-                        <Badge key={index} variant="secondary" className="text-xs">
-                          #{tag}
+                      {destination.tips && (
+                        <Badge variant="secondary" className="text-xs">
+                          #{destination.tips.substring(0, 10)}...
                         </Badge>
-                      ))}
+                      )}
                     </div>
                     <div className="text-xs text-gray-500">
-                      <span className="font-medium">최적 시기:</span> {destination.bestTime}
+                      <span className="font-medium">최적 시기:</span>{' '}
+                      {destination.best_time || '연중'}
                     </div>
                   </CardContent>
                 </Card>
@@ -278,12 +326,12 @@ export default function DestinationsPage() {
                   <div className="flex">
                     <div className="relative w-64 h-48 flex-shrink-0">
                       <img
-                        src={destination.image || '/placeholder.svg'}
+                        src={destination.image_url || '/placeholder.svg'}
                         alt={destination.name_kr}
                         className="w-full h-full object-cover"
                       />
                       <div className="absolute top-4 right-4 flex space-x-2">
-                        {destination.isPopular && (
+                        {destination.view_count > 1000 && (
                           <Badge className="bg-red-500 text-white">인기</Badge>
                         )}
                       </div>
@@ -300,8 +348,10 @@ export default function DestinationsPage() {
                         <div className="flex items-center space-x-4">
                           <div className="flex items-center">
                             <Star className="h-4 w-4 text-yellow-400 fill-current mr-1" />
-                            <span className="font-medium">{destination.rating_num}</span>
-                            <span className="text-gray-500 ml-1">({destination.reviewCount})</span>
+                            <span className="font-medium">{destination.rating_num || 0}</span>
+                            <span className="text-gray-500 ml-1">
+                              ({destination.view_count || 0})
+                            </span>
                           </div>
                           <Button
                             size="sm"
@@ -327,27 +377,45 @@ export default function DestinationsPage() {
 
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                         <div>
-                          <span className="text-sm font-medium text-gray-700">주요 명소:</span>
-                          <div className="flex flex-wrap gap-1 mt-1">
-                            {destination.highlights?.slice(0, 4).map((highlight, index) => (
-                              <Badge key={index} variant="outline" className="text-xs">
-                                {highlight}
-                              </Badge>
-                            ))}
-                          </div>
+                          <span className="text-sm font-medium text-gray-700">여행 팁:</span>
+                          <p className="text-sm text-gray-600 mt-1">
+                            {destination.tips || '정보 없음'}
+                          </p>
                         </div>
                         <div>
                           <span className="text-sm font-medium text-gray-700">최적 시기:</span>
-                          <p className="text-sm text-gray-600 mt-1">{destination.best_time}</p>
+                          <p className="text-sm text-gray-600 mt-1">
+                            {destination.best_time || '연중'}
+                          </p>
                         </div>
                       </div>
 
-                      <div className="flex flex-wrap gap-1">
-                        {destination.tags?.map((tag, index) => (
-                          <Badge key={index} variant="secondary" className="text-xs">
-                            #{tag}
-                          </Badge>
-                        ))}
+                      <div className="grid grid-cols-2 gap-4 mb-4">
+                        <div>
+                          <span className="text-sm font-medium text-gray-700">예상 비용:</span>
+                          <div className="text-sm text-gray-600 mt-1">
+                            <div>항공료: {(destination.cost_flight || 0).toLocaleString()}원</div>
+                            <div>
+                              숙박 (1박): {(destination.cost_hotel_per_night || 0).toLocaleString()}
+                              원
+                            </div>
+                            <div>
+                              식비 (1일): {(destination.cost_meal_per_day || 0).toLocaleString()}원
+                            </div>
+                            <div>
+                              관광비: {(destination.cost_sightseeing || 0).toLocaleString()}원
+                            </div>
+                          </div>
+                        </div>
+                        <div>
+                          <span className="text-sm font-medium text-gray-700">날씨 정보:</span>
+                          <div className="text-sm text-gray-600 mt-1">
+                            <div>봄: {destination.weather_spring || '정보 없음'}</div>
+                            <div>여름: {destination.weather_summer || '정보 없음'}</div>
+                            <div>가을: {destination.weather_autumn || '정보 없음'}</div>
+                            <div>겨울: {destination.weather_winter || '정보 없음'}</div>
+                          </div>
+                        </div>
                       </div>
                     </div>
                   </div>
