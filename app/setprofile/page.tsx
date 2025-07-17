@@ -15,6 +15,7 @@ import { NicknameInput } from '@/app/components/inputForm/NicknameInput';
 export default function SetProfilePage() {
   const [name, setName] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
   const router = useRouter();
   const { user, profile, refreshProfile } = useAuth();
@@ -39,6 +40,7 @@ export default function SetProfilePage() {
       setError('사용자정보를 찾을 수 없습니다.');
       return;
     }
+
     setIsSubmitting(true);
     try {
       // profiles 테이블에 프로필 생성
@@ -63,6 +65,7 @@ export default function SetProfilePage() {
     } catch (err) {
       setError('프로필 설정 중 오류가 발생했습니다.');
     } finally {
+      setIsSubmitting(false);
       setIsSubmitting(false);
     }
   };
@@ -142,8 +145,9 @@ export default function SetProfilePage() {
               <Button
                 type="submit"
                 className="w-full bg-blue-600 hover:bg-blue-700 text-white py-3 rounded-lg font-medium"
-                disabled={isSubmitting || !!nameError}
+                disabled={isSubmitting}
               >
+                {isSubmitting ? '설정 중...' : '프로필 설정 완료'}
                 {isSubmitting ? '설정 중...' : '프로필 설정 완료'}
               </Button>
             </form>

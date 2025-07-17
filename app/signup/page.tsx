@@ -21,6 +21,7 @@ export default function SignUpPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
 
   const { signUp } = useAuth();
@@ -81,6 +82,17 @@ export default function SignUpPage() {
       setError('입력값을 다시 확인해주세요.');
       return;
     }
+
+    if (password.length < 6) {
+      setError('비밀번호는 최소 6자 이상이어야 합니다.');
+      return;
+    }
+
+    if (!email || !password) {
+      setError('모든 필드를 입력해주세요.');
+      return;
+    }
+
     setIsSubmitting(true);
     try {
       const { error } = await signUp(email, password, name);
@@ -90,6 +102,7 @@ export default function SignUpPage() {
     } catch (err) {
       setError('회원가입 중 오류가 발생했습니다.');
     } finally {
+      setIsSubmitting(false);
       setIsSubmitting(false);
     }
   };
@@ -174,8 +187,9 @@ export default function SignUpPage() {
               <Button
                 type="submit"
                 className="w-full bg-blue-600 hover:bg-blue-700 text-white py-3 rounded-lg font-medium"
-                disabled={isSubmitting || !isFormValid}
+                disabled={isSubmitting}
               >
+                {isSubmitting ? '가입 중...' : '회원가입'}
                 {isSubmitting ? '가입 중...' : '회원가입'}
               </Button>
             </form>
