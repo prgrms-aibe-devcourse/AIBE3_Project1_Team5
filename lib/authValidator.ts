@@ -1,4 +1,5 @@
 // 인증 관련 입력값 검증 유틸
+import { supabase } from './supabase';
 
 export function isValidEmail(email: string): boolean {
   // 간단한 이메일 정규식
@@ -18,4 +19,10 @@ export function isValidName(name: string): boolean {
 
 export function isPasswordMatch(password: string, confirmPassword: string): boolean {
   return password === confirmPassword;
+}
+
+export async function isNameDuplicated(name: string): Promise<boolean> {
+  const { data, error } = await supabase.from('profiles').select('id').eq('name', name).single();
+  // data가 있으면 중복, 없으면 중복 아님
+  return !!data;
 }
