@@ -7,15 +7,15 @@ import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useAuth } from '@/app/providers/AuthProvider';
 import Link from 'next/link';
+import SocialLogin from '../components/SocialLogin';
 
 export default function LoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
 
-  const { signIn } = useAuth();
+  const { signIn, isLoading } = useAuth();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -26,7 +26,6 @@ export default function LoginPage() {
       return;
     }
 
-    setIsLoading(true);
     try {
       const { error } = await signIn(email, password);
       if (error) {
@@ -34,10 +33,21 @@ export default function LoginPage() {
       }
     } catch (err) {
       setError('로그인 중 오류가 발생했습니다.');
-    } finally {
-      setIsLoading(false);
     }
   };
+
+  // 로그인 처리 중일 때 로딩 화면 표시
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center p-4">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <h2 className="text-xl font-semibold text-gray-900">로그인 처리 중...</h2>
+          <p className="text-gray-600">잠시만 기다려주세요.</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center p-4">
@@ -121,13 +131,16 @@ export default function LoginPage() {
             <div className="mt-6 text-center">
               <p className="text-gray-600">
                 계정이 없으신가요?{' '}
-                <Link href="/singup" className="text-blue-600 hover:text-blue-700">
+                <Link href="/signup" className="text-blue-600 hover:text-blue-700">
                   회원가입하기
                 </Link>
               </p>
             </div>
           </CardContent>
         </Card>
+        <div className="mt-6">
+          <SocialLogin />
+        </div>
       </div>
     </div>
   );
