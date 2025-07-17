@@ -4,6 +4,7 @@ import { Inter } from 'next/font/google';
 import './globals.css';
 import Navigation from './components/Navigation';
 import { AuthProvider } from './providers/AuthProvider';
+import FloatingChat from '@/components/chat/FloatingChat';
 
 const inter = Inter({ subsets: ['latin'] });
 
@@ -20,6 +21,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <AuthProvider>
           <Navigation />
           {children}
+          <FloatingChat />
         </AuthProvider>
       </body>
     </html>
