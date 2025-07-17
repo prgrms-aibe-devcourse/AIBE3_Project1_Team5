@@ -12,7 +12,7 @@ import Link from 'next/link';
 
 export default function SetProfilePage() {
   const [name, setName] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
   const router = useRouter();
   const { user, profile, refreshProfile } = useAuth();
@@ -37,7 +37,7 @@ export default function SetProfilePage() {
       return;
     }
 
-    setIsLoading(true);
+    setIsSubmitting(true);
     try {
       // profiles 테이블에 프로필 생성
       const { error: profileError } = await supabase.from('profiles').insert([
@@ -61,7 +61,7 @@ export default function SetProfilePage() {
     } catch (err) {
       setError('프로필 설정 중 오류가 발생했습니다.');
     } finally {
-      setIsLoading(false);
+      setIsSubmitting(false);
     }
   };
 
@@ -125,9 +125,9 @@ export default function SetProfilePage() {
               <Button
                 type="submit"
                 className="w-full bg-blue-600 hover:bg-blue-700 text-white py-3 rounded-lg font-medium"
-                disabled={isLoading}
+                disabled={isSubmitting}
               >
-                {isLoading ? '설정 중...' : '프로필 설정 완료'}
+                {isSubmitting ? '설정 중...' : '프로필 설정 완료'}
               </Button>
             </form>
           </CardContent>

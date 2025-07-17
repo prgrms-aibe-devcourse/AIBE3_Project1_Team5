@@ -15,7 +15,7 @@ export default function SignUpPage() {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
 
   const { signUp } = useAuth();
@@ -45,7 +45,7 @@ export default function SignUpPage() {
       return;
     }
 
-    setIsLoading(true);
+    setIsSubmitting(true);
     try {
       const { error } = await signUp(email, password, name);
       if (error) {
@@ -54,7 +54,7 @@ export default function SignUpPage() {
     } catch (err) {
       setError('회원가입 중 오류가 발생했습니다.');
     } finally {
-      setIsLoading(false);
+      setIsSubmitting(false);
     }
   };
 
@@ -179,9 +179,9 @@ export default function SignUpPage() {
               <Button
                 type="submit"
                 className="w-full bg-blue-600 hover:bg-blue-700 text-white py-3 rounded-lg font-medium"
-                disabled={isLoading}
+                disabled={isSubmitting}
               >
-                {isLoading ? '가입 중...' : '회원가입'}
+                {isSubmitting ? '가입 중...' : '회원가입'}
               </Button>
             </form>
 
