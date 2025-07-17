@@ -19,6 +19,8 @@ interface AuthContextType {
   profile: Profile | null;
   signUp: (email: string, password: string, name?: string) => Promise<{ error: Error | null }>;
   signIn: (email: string, password: string) => Promise<{ error: Error | null }>;
+  signInWithGithub: () => Promise<{ error: Error | null }>;
+  refreshProfile: () => Promise<void>;
   signOut: () => Promise<void>;
 }
 
@@ -67,6 +69,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (session?.user) {
         const profileData = await getProfile(session.user.id);
         setProfile(profileData);
+
+        // 프로필이 없으면 /setprofile로, 있으면 /로 이동
+        if (!profileData) {
+          router.push('/setprofile');
+        } else {
+          router.push('/');
+        }
       } else {
         setProfile(null);
       }
@@ -101,6 +110,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const signIn = async (email: string, password: string) => {
+    setIsLoading(true);
     const { error } = await supabase.auth.signInWithPassword({
       email,
       password,
@@ -113,8 +123,39 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setProfile(profileData);
       }
     }
+    setIsLoading(false);
     router.push('/');
     return { error };
+  };
+
+  const signInWithGithub = async () => {
+    setIsLoading(true);
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: 'github',
+      options: {
+        redirectTo: `${window.location.origin}/setprofile`,
+      },
+    });
+
+    if (!error) {
+      // GitHub 로그인 성공 시 profile 갱신
+      const user = (await supabase.auth.getUser()).data.user;
+      if (user) {
+        const profileData = await getProfile(user.id);
+        setProfile(profileData);
+      }
+    }
+
+    setIsLoading(false);
+    router.push('/');
+    return { error };
+  };
+
+  const refreshProfile = async () => {
+    if (user) {
+      const profileData = await getProfile(user.id);
+      setProfile(profileData);
+    }
   };
 
   const signOut = async () => {
@@ -122,7 +163,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     router.push('/login');
   };
 
-  const value = { user, isLoading, profile, signUp, signIn, signOut };
+  const value = {
+    user,
+    isLoading,
+    profile,
+    signUp,
+    signIn,
+    signInWithGithub,
+    refreshProfile,
+    signOut,
+  };
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 
