@@ -2,11 +2,22 @@
 
 import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
-import { MapPin, CalendarIcon, Plus, PlaneTakeoff, Frown, Info } from 'lucide-react';
+import {
+  MapPin,
+  CalendarIcon,
+  Plus,
+  PlaneTakeoff,
+  Frown,
+  Info,
+  Edit2,
+  Share2,
+  Trash2,
+} from 'lucide-react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton'; // Skeleton 컴포넌트 추가
+import { useRouter } from 'next/navigation'; // useRouter 추가
 
 interface Trip {
   id: string;
@@ -21,6 +32,7 @@ export default function MyTripsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [user, setUser] = useState<any>(null);
+  const router = useRouter(); // useRouter 인스턴스 생성
 
   useEffect(() => {
     const fetchTrips = async () => {
@@ -36,7 +48,7 @@ export default function MyTripsPage() {
       }
       setUser(user);
       const { data, error: tripsError } = await supabase
-        .from('trips')
+        .from('travel_schedule')
         .select('id, title, start_date, end_date, destination')
         .eq('user_id', user.id)
         .order('start_date', { ascending: true });
@@ -49,6 +61,29 @@ export default function MyTripsPage() {
     };
     fetchTrips();
   }, []);
+
+  // 일정 삭제
+  const handleDelete = async (id: string) => {
+    if (!confirm('정말 삭제하시겠습니까?')) return;
+    const { error } = await supabase.from('travel_schedule').delete().eq('id', id);
+    if (error) {
+      alert('삭제 실패: ' + error.message);
+    } else {
+      setTrips((prev) => prev.filter((trip) => trip.id !== id));
+    }
+  };
+
+  // 일정 공유 (링크 복사)
+  const handleShare = (id: string) => {
+    const url = `${window.location.origin}/my-trips/edit/${id}`;
+    navigator.clipboard.writeText(url);
+    alert('공유 링크가 복사되었습니다!');
+  };
+
+  // 일정 편집(이동)
+  const handleEdit = (id: string) => {
+    router.push(`/my-trips/edit/${id}`);
+  };
 
   return (
     <div className="min-h-screen bg-gray-50 py-10">
@@ -126,7 +161,8 @@ export default function MyTripsPage() {
             {trips.map((trip) => (
               <Card
                 key={trip.id}
-                className="flex flex-col sm:flex-row items-start sm:items-center bg-white rounded-xl shadow-md hover:shadow-lg transition-all duration-200 p-5"
+                className="flex flex-col sm:flex-row items-start sm:items-center bg-white rounded-xl shadow-md hover:shadow-lg transition-all duration-200 p-5 cursor-pointer"
+                onClick={() => handleEdit(trip.id)}
               >
                 <div className="flex-1 mb-4 sm:mb-0">
                   <h2 className="text-2xl font-semibold text-gray-900 mb-2">{trip.title}</h2>
@@ -139,6 +175,38 @@ export default function MyTripsPage() {
                   <div className="flex items-center text-gray-600 text-base">
                     <MapPin className="h-5 w-5 mr-2 text-blue-500" />
                     <span>{trip.destination}</span>
+                  </div>
+                  <div className="flex gap-2 mt-3">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleEdit(trip.id);
+                      }}
+                    >
+                      <Edit2 className="h-4 w-4 mr-1" /> 편집
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleShare(trip.id);
+                      }}
+                    >
+                      <Share2 className="h-4 w-4 mr-1" /> 공유
+                    </Button>
+                    <Button
+                      variant="destructive"
+                      size="sm"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleDelete(trip.id);
+                      }}
+                    >
+                      <Trash2 className="h-4 w-4 mr-1" /> 삭제
+                    </Button>
                   </div>
                 </div>
                 <TripImage destination={trip.destination} />

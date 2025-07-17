@@ -54,7 +54,7 @@ export default function CreateTripPage() {
     }
 
     // DB 저장
-    const { error: insertError } = await supabase.from('trips').insert([
+    const { error: insertError } = await supabase.from('travel_schedule').insert([
       {
         id: uuidv4(),
         user_id: user.id,
