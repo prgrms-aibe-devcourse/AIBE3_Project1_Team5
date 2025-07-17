@@ -112,7 +112,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     // 회원가입 후 세션 강제 로그아웃
     await supabase.auth.signOut();
 
-    router.push('/login');
+    if (!error) {
+      router.push('/login');
+    }
     return { error };
   };
 
