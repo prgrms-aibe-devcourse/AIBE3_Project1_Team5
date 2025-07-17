@@ -1,22 +1,24 @@
-"use client"
+'use client';
 
-import { useState } from "react"
-import Link from "next/link"
-import { usePathname } from "next/navigation"
-import { Menu, X, Home, MessageCircle, Star, Calendar, MapPin } from "lucide-react"
-import { Button } from "@/components/ui/button"
+import { useState } from 'react';
+import Link from 'next/link';
+import { usePathname } from 'next/navigation';
+import { Menu, X, Home, MessageCircle, Star, Calendar, MapPin } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { useAuth } from '@/app/providers/AuthProvider';
 
 const navItems = [
-  { href: "/", label: "홈", icon: Home },
-  { href: "/destinations", label: "여행지", icon: MapPin },
-  { href: "/chat", label: "AI 채팅", icon: MessageCircle },
-  { href: "/planner", label: "일정 계획", icon: Calendar },
-  { href: "/reviews", label: "후기", icon: Star },
-]
+  { href: '/', label: '홈', icon: Home },
+  { href: '/destinations', label: '여행지', icon: MapPin },
+  { href: '/chat', label: 'AI 채팅', icon: MessageCircle },
+  { href: '/planner', label: '일정 계획', icon: Calendar },
+  { href: '/reviews', label: '후기', icon: Star },
+];
 
 export default function Navigation() {
-  const [isOpen, setIsOpen] = useState(false)
-  const pathname = usePathname()
+  const [isOpen, setIsOpen] = useState(false);
+  const pathname = usePathname();
+  const { user, signOut, profile } = useAuth();
 
   return (
     <nav className="bg-white shadow-sm border-b sticky top-0 z-50">
@@ -33,31 +35,48 @@ export default function Navigation() {
           {/* Desktop Navigation */}
           <div className="hidden md:flex items-center space-x-8">
             {navItems.map((item) => {
-              const Icon = item.icon
-              const isActive = pathname === item.href
+              const Icon = item.icon;
+              const isActive = pathname === item.href;
               return (
                 <Link
                   key={item.href}
                   href={item.href}
                   className={`flex items-center space-x-1 px-3 py-2 rounded-md text-sm font-medium transition-colors ${
-                    isActive ? "text-blue-600 bg-blue-50" : "text-gray-700 hover:text-blue-600 hover:bg-gray-50"
+                    isActive
+                      ? 'text-blue-600 bg-blue-50'
+                      : 'text-gray-700 hover:text-blue-600 hover:bg-gray-50'
                   }`}
                 >
                   <Icon className="h-4 w-4" />
                   <span>{item.label}</span>
                 </Link>
-              )
+              );
             })}
           </div>
 
           {/* User Menu */}
           <div className="hidden md:flex items-center space-x-4">
-            <Button variant="outline" size="sm">
-              로그인
-            </Button>
-            <Button size="sm" className="bg-blue-600 hover:bg-blue-700">
-              회원가입
-            </Button>
+            {user ? (
+              <div className="flex items-center space-x-3">
+                <span className="text-sm text-gray-700">{profile?.name || user.email}</span>
+                <Button variant="outline" size="sm" onClick={signOut}>
+                  로그아웃
+                </Button>
+              </div>
+            ) : (
+              <>
+                <Link href="/login">
+                  <Button variant="outline" size="sm">
+                    로그인
+                  </Button>
+                </Link>
+                <Link href="/singup">
+                  <Button size="sm" className="bg-blue-600 hover:bg-blue-700">
+                    회원가입
+                  </Button>
+                </Link>
+              </>
+            )}
           </div>
 
           {/* Mobile menu button */}
@@ -73,34 +92,58 @@ export default function Navigation() {
           <div className="md:hidden py-4 border-t">
             <div className="space-y-2">
               {navItems.map((item) => {
-                const Icon = item.icon
-                const isActive = pathname === item.href
+                const Icon = item.icon;
+                const isActive = pathname === item.href;
                 return (
                   <Link
                     key={item.href}
                     href={item.href}
                     className={`flex items-center space-x-2 px-3 py-2 rounded-md text-sm font-medium ${
-                      isActive ? "text-blue-600 bg-blue-50" : "text-gray-700 hover:text-blue-600 hover:bg-gray-50"
+                      isActive
+                        ? 'text-blue-600 bg-blue-50'
+                        : 'text-gray-700 hover:text-blue-600 hover:bg-gray-50'
                     }`}
                     onClick={() => setIsOpen(false)}
                   >
                     <Icon className="h-4 w-4" />
                     <span>{item.label}</span>
                   </Link>
-                )
+                );
               })}
             </div>
             <div className="mt-4 pt-4 border-t space-y-2">
-              <Button variant="outline" size="sm" className="w-full bg-transparent">
-                로그인
-              </Button>
-              <Button size="sm" className="w-full bg-blue-600 hover:bg-blue-700">
-                회원가입
-              </Button>
+              {user ? (
+                <div className="space-y-2">
+                  <div className="text-center text-sm text-gray-700 px-3 py-2">
+                    {profile?.name || user.email}
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="w-full bg-transparent"
+                    onClick={signOut}
+                  >
+                    로그아웃
+                  </Button>
+                </div>
+              ) : (
+                <>
+                  <Link href="/login">
+                    <Button variant="outline" size="sm" className="w-full bg-transparent">
+                      로그인
+                    </Button>
+                  </Link>
+                  <Link href="/singup">
+                    <Button size="sm" className="w-full bg-blue-600 hover:bg-blue-700">
+                      회원가입
+                    </Button>
+                  </Link>
+                </>
+              )}
             </div>
           </div>
         )}
       </div>
     </nav>
-  )
+  );
 }
