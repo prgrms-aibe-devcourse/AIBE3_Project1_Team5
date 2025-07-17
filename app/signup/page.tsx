@@ -7,6 +7,11 @@ import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useAuth } from '@/app/providers/AuthProvider';
 import Link from 'next/link';
+import { useInputValidator } from '@/hooks/useInputValidator';
+import { NicknameInput } from '@/app/components/inputForm/NicknameInput';
+import { EmailInput } from '@/app/components/inputForm/EmailInput';
+import { PasswordInput } from '@/app/components/inputForm/PasswordInput';
+import { ConfirmPasswordInput } from '@/app/components/inputForm/ConfirmPasswordInput';
 
 export default function SignUpPage() {
   const [name, setName] = useState('');
@@ -15,37 +20,68 @@ export default function SignUpPage() {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
 
   const { signUp } = useAuth();
+  const {
+    nameError,
+    emailError,
+    passwordError,
+    confirmPasswordError,
+    handleNameChange,
+    handleEmailChange,
+    handlePasswordChange,
+    handleConfirmPasswordChange,
+    checkNameDuplicate,
+    isCheckingNameDuplicate,
+  } = useInputValidator();
+  const [isNameChecked, setIsNameChecked] = useState(false);
+  const [nameCheckMessage, setNameCheckMessage] = useState('');
+
+  // 모든 필드가 채워져 있고, 에러가 없을 때만 활성화
+  const isFormValid =
+    name.trim() &&
+    email.trim() &&
+    password.trim() &&
+    confirmPassword.trim() &&
+    !nameError &&
+    !emailError &&
+    !passwordError &&
+    !confirmPasswordError;
+
+  // 이름 중복확인 버튼 클릭 핸들러
+  const handleNameCheck = async () => {
+    setIsNameChecked(false);
+    setNameCheckMessage('');
+    if (!name.trim()) {
+      setNameCheckMessage('이름을 입력해주세요.');
+      return;
+    }
+    const duplicated = await checkNameDuplicate(name);
+    setIsNameChecked(true);
+    if (!duplicated && !nameError) {
+      setNameCheckMessage('사용 가능한 이름입니다.');
+    } else {
+      setNameCheckMessage('');
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
 
-    // 유효성 검사
-    if (!name.trim()) {
-      setError('이름을 입력해주세요.');
-      return;
-    }
-
-    if (password !== confirmPassword) {
-      setError('비밀번호가 일치하지 않습니다.');
-      return;
-    }
-
-    if (password.length < 6) {
-      setError('비밀번호는 최소 6자 이상이어야 합니다.');
-      return;
-    }
-
-    if (!email || !password) {
+    // 방어코드: 모든 필드 입력 여부
+    if (!name.trim() || !email.trim() || !password.trim() || !confirmPassword.trim()) {
       setError('모든 필드를 입력해주세요.');
       return;
     }
-
-    setIsLoading(true);
+    // 방어코드: 각 필드별 에러
+    if (nameError || emailError || passwordError || confirmPasswordError) {
+      setError('입력값을 다시 확인해주세요.');
+      return;
+    }
+    setIsSubmitting(true);
     try {
       const { error } = await signUp(email, password, name);
       if (error) {
@@ -54,7 +90,7 @@ export default function SignUpPage() {
     } catch (err) {
       setError('회원가입 중 오류가 발생했습니다.');
     } finally {
-      setIsLoading(false);
+      setIsSubmitting(false);
     }
   };
 
@@ -76,99 +112,58 @@ export default function SignUpPage() {
           </CardHeader>
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-4">
-              {/* Name Input */}
-              <div className="space-y-2">
-                <label htmlFor="name" className="text-sm font-medium text-gray-700">
-                  이름
-                </label>
-                <div className="relative">
-                  <User className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-                  <Input
-                    id="name"
-                    type="text"
-                    placeholder="홍길동"
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
-                    className="pl-10"
-                    required
-                  />
-                </div>
-              </div>
+              {/* Nickname Input */}
+              <NicknameInput
+                value={name}
+                onChange={(value: string) => {
+                  setName(value);
+                  handleNameChange(value);
+                  setIsNameChecked(false);
+                  setNameCheckMessage('');
+                }}
+                onCheckDuplicate={handleNameCheck}
+                isChecking={isCheckingNameDuplicate}
+                error={nameError}
+                checkMessage={
+                  !nameError && isNameChecked && nameCheckMessage ? nameCheckMessage : ''
+                }
+              />
 
               {/* Email Input */}
-              <div className="space-y-2">
-                <label htmlFor="email" className="text-sm font-medium text-gray-700">
-                  이메일
-                </label>
-                <div className="relative">
-                  <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-                  <Input
-                    id="email"
-                    type="email"
-                    placeholder="your@email.com"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    className="pl-10"
-                    required
-                  />
-                </div>
-              </div>
+              <EmailInput
+                value={email}
+                onChange={(value: string) => {
+                  setEmail(value);
+                  handleEmailChange(value);
+                }}
+                error={emailError}
+              />
 
               {/* Password Input */}
-              <div className="space-y-2">
-                <label htmlFor="password" className="text-sm font-medium text-gray-700">
-                  비밀번호
-                </label>
-                <div className="relative">
-                  <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-                  <Input
-                    id="password"
-                    type={showPassword ? 'text' : 'password'}
-                    placeholder="최소 6자 이상"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    className="pl-10 pr-10"
-                    required
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                  >
-                    {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                  </button>
-                </div>
-              </div>
+              <PasswordInput
+                value={password}
+                onChange={(value: string) => {
+                  setPassword(value);
+                  handlePasswordChange(value, confirmPassword);
+                }}
+                error={passwordError}
+                showPassword={showPassword}
+                onToggleShow={() => setShowPassword(!showPassword)}
+                placeholder="최소 6자 이상"
+              />
 
               {/* Confirm Password Input */}
-              <div className="space-y-2">
-                <label htmlFor="confirmPassword" className="text-sm font-medium text-gray-700">
-                  비밀번호 확인
-                </label>
-                <div className="relative">
-                  <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-                  <Input
-                    id="confirmPassword"
-                    type={showConfirmPassword ? 'text' : 'password'}
-                    placeholder="비밀번호를 다시 입력하세요"
-                    value={confirmPassword}
-                    onChange={(e) => setConfirmPassword(e.target.value)}
-                    className="pl-10 pr-10"
-                    required
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                    className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                  >
-                    {showConfirmPassword ? (
-                      <EyeOff className="h-4 w-4" />
-                    ) : (
-                      <Eye className="h-4 w-4" />
-                    )}
-                  </button>
-                </div>
-              </div>
+              <ConfirmPasswordInput
+                value={confirmPassword}
+                onChange={(value: string) => {
+                  setConfirmPassword(value);
+                  handleConfirmPasswordChange(password, value);
+                }}
+                error={confirmPasswordError}
+                showPassword={showConfirmPassword}
+                onToggleShow={() => setShowConfirmPassword(!showConfirmPassword)}
+                placeholder="비밀번호를 다시 입력하세요"
+              />
 
               {/* Error Message */}
               {error && (
@@ -179,9 +174,9 @@ export default function SignUpPage() {
               <Button
                 type="submit"
                 className="w-full bg-blue-600 hover:bg-blue-700 text-white py-3 rounded-lg font-medium"
-                disabled={isLoading}
+                disabled={isSubmitting || !isFormValid}
               >
-                {isLoading ? '가입 중...' : '회원가입'}
+                {isSubmitting ? '가입 중...' : '회원가입'}
               </Button>
             </form>
 
