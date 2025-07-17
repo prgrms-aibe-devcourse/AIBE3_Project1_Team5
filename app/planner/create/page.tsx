@@ -1,9 +1,16 @@
 'use client';
 
+import type React from 'react';
+
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { supabase } from '@/lib/supabase';
-import { v4 as uuidv4 } from 'uuid';
+import { PlaneTakeoff, Save, Loader2 } from 'lucide-react'; // Lucide icons 추가
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Label } from '@/components/ui/label';
+import { supabase } from '@/lib/supabase'; // Assuming this path is correct and configured
+import { v4 as uuidv4 } from 'uuid'; // Assuming uuid is installed
 
 export default function CreateTripPage() {
   const router = useRouter();
@@ -64,56 +71,96 @@ export default function CreateTripPage() {
     if (insertError) {
       setError(insertError.message);
     } else {
-      router.push('/my-trips');
+      router.push('/my-trips'); // 성공 시 이동할 페이지
     }
   };
 
   return (
-    <div className="max-w-xl mx-auto p-4">
-      <h1 className="text-2xl font-bold mb-4">여행 일정 만들기</h1>
-      <form onSubmit={handleSubmit} className="space-y-4">
-        <input
-          type="text"
-          placeholder="여행 제목"
-          value={title}
-          onChange={(e) => setTitle(e.target.value)}
-          className="w-full border p-2 rounded"
-          maxLength={100}
-          required
-        />
-        <div className="flex space-x-2">
-          <input
-            type="date"
-            value={startDate}
-            onChange={(e) => setStartDate(e.target.value)}
-            className="border p-2 rounded w-1/2"
-            required
-          />
-          <input
-            type="date"
-            value={endDate}
-            onChange={(e) => setEndDate(e.target.value)}
-            className="border p-2 rounded w-1/2"
-            required
-          />
-        </div>
-        <input
-          type="text"
-          placeholder="목적지(도시명)"
-          value={destination}
-          onChange={(e) => setDestination(e.target.value)}
-          className="w-full border p-2 rounded"
-          required
-        />
-        {error && <div className="text-red-500">{error}</div>}
-        <button
-          type="submit"
-          className="w-full bg-blue-600 text-white p-2 rounded"
-          disabled={loading}
-        >
-          {loading ? '저장 중...' : '일정 저장'}
-        </button>
-      </form>
+    <div className="min-h-screen bg-gray-50 py-8">
+      <div className="max-w-xl mx-auto px-4">
+        <Card>
+          <CardHeader className="text-center">
+            <CardTitle className="text-3xl font-bold text-gray-900 flex items-center justify-center gap-2">
+              <PlaneTakeoff className="h-8 w-8 text-blue-600" />
+              새로운 여행 일정 만들기
+            </CardTitle>
+            <CardDescription className="text-gray-600 mt-2">
+              당신의 다음 모험을 위한 완벽한 계획을 시작하세요.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <form onSubmit={handleSubmit} className="space-y-6">
+              <div>
+                <Label htmlFor="title">여행 제목</Label>
+                <Input
+                  id="title"
+                  type="text"
+                  placeholder="예: 제주도 힐링 여행, 유럽 배낭여행"
+                  value={title}
+                  onChange={(e) => setTitle(e.target.value)}
+                  maxLength={100}
+                  required
+                  className="mt-1"
+                />
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="startDate">출발 날짜</Label>
+                  <Input
+                    id="startDate"
+                    type="date"
+                    value={startDate}
+                    onChange={(e) => setStartDate(e.target.value)}
+                    required
+                    className="mt-1"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="endDate">도착 날짜</Label>
+                  <Input
+                    id="endDate"
+                    type="date"
+                    value={endDate}
+                    onChange={(e) => setEndDate(e.target.value)}
+                    required
+                    className="mt-1"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <Label htmlFor="destination">목적지</Label>
+                <Input
+                  id="destination"
+                  type="text"
+                  placeholder="예: 서울, 제주도, 파리"
+                  value={destination}
+                  onChange={(e) => setDestination(e.target.value)}
+                  required
+                  className="mt-1"
+                />
+              </div>
+
+              {error && <div className="text-red-500 text-sm mt-2">{error}</div>}
+
+              <Button type="submit" className="w-full py-2" disabled={loading}>
+                {loading ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    저장 중...
+                  </>
+                ) : (
+                  <>
+                    <Save className="mr-2 h-4 w-4" />
+                    일정 저장
+                  </>
+                )}
+              </Button>
+            </form>
+          </CardContent>
+        </Card>
+      </div>
     </div>
   );
 }
