@@ -40,7 +40,6 @@ export interface PlanModification {
   id: string;
   plan_id: string;
   user_id: string;
-  chat_session_id: string;
   modification_type: string;
   modification_request: string;
   original_data: any;
@@ -255,7 +254,6 @@ export class ChatSessionService {
   static async saveModificationRequest(
     planId: string,
     userId: string,
-    sessionId: string,
     modificationType: string,
     request: string,
     originalData: any,
@@ -268,7 +266,6 @@ export class ChatSessionService {
         .insert({
           plan_id: planId,
           user_id: userId,
-          chat_session_id: sessionId,
           modification_type: modificationType,
           modification_request: request,
           original_data: originalData,
@@ -321,6 +318,102 @@ export class ChatSessionService {
     } catch (error) {
       console.error('Error creating plan version:', error);
       return null;
+    }
+  }
+
+  // 최신 버전 번호 조회
+  static async getLatestVersionNumber(planId: string): Promise<number> {
+    try {
+      const { data, error } = await supabase
+        .from('plan_versions')
+        .select('version_number')
+        .eq('plan_id', planId)
+        .order('version_number', { ascending: false })
+        .limit(1)
+        .single();
+
+      if (error && error.code !== 'PGRST116') {
+        console.error('Error fetching latest version number:', error);
+        return 0;
+      }
+
+      return data?.version_number || 0;
+    } catch (error) {
+      console.error('Error in getLatestVersionNumber:', error);
+      return 0;
+    }
+  }
+
+  // 자동 버전 생성 (여행 계획 수정 시)
+  static async createVersionFromPlanUpdate(
+    planId: string,
+    updatedScheduleData: any,
+    modificationSummary: string
+  ): Promise<PlanVersion | null> {
+    try {
+      const currentVersionNumber = await this.getLatestVersionNumber(planId);
+      const newVersionNumber = currentVersionNumber + 1;
+
+      return await this.createPlanVersion(
+        planId,
+        newVersionNumber,
+        updatedScheduleData,
+        modificationSummary,
+        true
+      );
+    } catch (error) {
+      console.error('Error creating version from plan update:', error);
+      return null;
+    }
+  }
+
+  // 현재 활성 버전 조회
+  static async getCurrentPlanVersion(planId: string): Promise<PlanVersion | null> {
+    try {
+      const { data, error } = await supabase
+        .from('plan_versions')
+        .select('*')
+        .eq('plan_id', planId)
+        .eq('is_current', true)
+        .single();
+
+      if (error && error.code !== 'PGRST116') {
+        console.error('Error fetching current plan version:', error);
+        return null;
+      }
+
+      return data;
+    } catch (error) {
+      console.error('Error in getCurrentPlanVersion:', error);
+      return null;
+    }
+  }
+
+  // 특정 버전으로 롤백
+  static async rollbackToVersion(planId: string, versionNumber: number): Promise<boolean> {
+    try {
+      // 1. 모든 버전을 current = false로 변경
+      await supabase
+        .from('plan_versions')
+        .update({ is_current: false })
+        .eq('plan_id', planId);
+
+      // 2. 지정된 버전을 current = true로 변경
+      const { error } = await supabase
+        .from('plan_versions')
+        .update({ is_current: true })
+        .eq('plan_id', planId)
+        .eq('version_number', versionNumber);
+
+      if (error) {
+        console.error('Error rolling back to version:', error);
+        return false;
+      }
+
+      return true;
+    } catch (error) {
+      console.error('Error in rollbackToVersion:', error);
+      return false;
     }
   }
 
@@ -383,6 +476,46 @@ export class ChatSessionService {
     } catch (error) {
       console.error('Error creating sharing settings:', error);
       return null;
+    }
+  }
+
+  // 특정 계획의 모든 수정 이력 삭제
+  static async deletePlanModifications(planId: string): Promise<boolean> {
+    try {
+      const { error } = await supabase
+        .from('plan_modifications')
+        .delete()
+        .eq('plan_id', planId);
+
+      if (error) {
+        console.error('Error deleting plan modifications:', error);
+        return false;
+      }
+
+      return true;
+    } catch (error) {
+      console.error('Error in deletePlanModifications:', error);
+      return false;
+    }
+  }
+
+  // 사용자의 모든 수정 이력 삭제 (필요시 사용)
+  static async deleteUserModifications(userId: string): Promise<boolean> {
+    try {
+      const { error } = await supabase
+        .from('plan_modifications')
+        .delete()
+        .eq('user_id', userId);
+
+      if (error) {
+        console.error('Error deleting user modifications:', error);
+        return false;
+      }
+
+      return true;
+    } catch (error) {
+      console.error('Error in deleteUserModifications:', error);
+      return false;
     }
   }
 

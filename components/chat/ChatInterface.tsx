@@ -1,16 +1,65 @@
 // components/chat/ChatInterface.tsx
 'use client';
 
-import React, { useRef, useEffect } from 'react';
+import React, { useRef, useEffect, forwardRef, useImperativeHandle } from 'react';
 import ChatMessage from './ChatMessage';
 import ChatInput from './ChatInput';
 import { useChat } from '@/hooks/useChat';
 import { useAuth } from '@/app/providers/AuthProvider';
 
-export default function ChatInterface() {
+export interface ChatInterfaceRef {
+  clearConversationOnly: () => void;
+  clearAllRecords: () => Promise<void>;
+}
+
+const ChatInterface = forwardRef<ChatInterfaceRef>((props, ref) => {
   const { user, isLoading: authLoading } = useAuth();
-  const { messages, isLoading, isInitializing, sendMessage } = useChat();
+  const { messages, isLoading, isInitializing, sendMessage, clearConversationOnly, clearAllRecords } = useChat();
   const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  useImperativeHandle(ref, () => ({
+    clearConversationOnly,
+    clearAllRecords,
+  }), [clearConversationOnly, clearAllRecords]);
+  
+  // 버튼 클릭 핸들러
+  const handleSettingButtonClick = (action: 'keep' | 'reset' | 'partial') => {
+    switch (action) {
+      case 'keep':
+        sendMessage('네, 그대로 해주세요');
+        break;
+      case 'reset':
+        sendMessage('다시 설정할게요');
+        break;
+      case 'partial':
+        sendMessage('일부만 바꿀게요');
+        break;
+    }
+  };
+  
+  // 설정 업데이트 핸들러
+  const handleSettingsUpdate = (settings: any) => {
+    if (Object.keys(settings).length > 0) {
+      // 변경된 설정을 메시지로 전송
+      const changedItems = Object.entries(settings)
+        .map(([key, value]) => {
+          const keyMap: any = {
+            duration: '기간',
+            peopleCount: '인원',
+            budget: '예산',
+            travelStyle: '여행스타일',
+            transportation: '교통수단',
+            accommodation: '숙박'
+          };
+          return `${keyMap[key]}: ${value}`;
+        })
+        .join(', ');
+      
+      sendMessage(`설정 변경: ${changedItems}`);
+    } else {
+      sendMessage('설정 변경을 취소했습니다.');
+    }
+  };
 
   // 새 메시지 추가시 스크롤 하단으로 이동
   const scrollToBottom = () => {
@@ -78,7 +127,12 @@ export default function ChatInterface() {
       {/* 메시지 영역 */}
       <div className="flex-1 overflow-y-auto p-4 space-y-4">
         {messages.map((message) => (
-          <ChatMessage key={message.id} message={message} />
+          <ChatMessage 
+            key={message.id} 
+            message={message} 
+            onButtonClick={handleSettingButtonClick}
+            onSettingsUpdate={handleSettingsUpdate}
+          />
         ))}
         {isLoading && (
           <div className="flex justify-start">
@@ -106,4 +160,8 @@ export default function ChatInterface() {
       </div>
     </div>
   );
-}
+});
+
+ChatInterface.displayName = 'ChatInterface';
+
+export default ChatInterface;

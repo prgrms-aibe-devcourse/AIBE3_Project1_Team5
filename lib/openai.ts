@@ -3,6 +3,7 @@ import OpenAI from 'openai';
 // OpenAI 클라이언트 초기화
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
+  timeout: 120000, // 120초 타임아웃
 });
 
 // 여행 파라미터 인터페이스
@@ -14,6 +15,7 @@ export interface TravelParameters {
   transportation?: string;
   accommodation?: string;
   travelStyle?: string;
+  collection_status?: 'incomplete' | 'complete' | 'awaiting_confirmation';
 }
 
 // 파라미터 수집 상태

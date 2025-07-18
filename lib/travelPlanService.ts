@@ -23,7 +23,7 @@ export interface SessionParameters {
 export interface TravelPlanDB {
   id: string;
   user_id: string;
-  chat_session_id?: string;
+  created_from_session_id?: string; // 생성 출처 추적용 (참조만)
   title: string;
   destination: string;
   start_date?: string;
@@ -55,6 +55,11 @@ export const travelPlanService = {
       if (error && error.code !== 'PGRST116') { // PGRST116 = no rows returned
         console.error('Error fetching session parameters:', error);
         return null;
+      }
+
+      // collection_status가 undefined인 경우 기본값 설정
+      if (data && !data.collection_status) {
+        data.collection_status = 'incomplete';
       }
 
       return data;
@@ -155,7 +160,7 @@ export const travelPlanService = {
         .from('travel_plans')
         .insert({
           user_id: userId,
-          chat_session_id: sessionId,
+          created_from_session_id: sessionId,
           title: plan.title,
           destination: plan.destination,
           start_date: plan.startDate,
@@ -273,6 +278,26 @@ export const travelPlanService = {
       return true;
     } catch (error) {
       console.error('Error in deleteSessionParameters:', error);
+      return false;
+    }
+  },
+
+  // 특정 여행 계획 삭제 (개별 계획 관리용)
+  async deleteTravelPlan(planId: string): Promise<boolean> {
+    try {
+      const { error } = await supabase
+        .from('travel_plans')
+        .delete()
+        .eq('id', planId);
+
+      if (error) {
+        console.error('Error deleting travel plan:', error);
+        return false;
+      }
+
+      return true;
+    } catch (error) {
+      console.error('Error in deleteTravelPlan:', error);
       return false;
     }
   }

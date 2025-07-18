@@ -19,6 +19,26 @@ export interface ChatMessage {
 }
 
 export const chatService = {
+  // 세션의 모든 메시지 삭제
+  async deleteSessionMessages(sessionId: string): Promise<boolean> {
+    try {
+      const { error } = await supabase
+        .from('chat_messages')
+        .delete()
+        .eq('session_id', sessionId);
+
+      if (error) {
+        console.error('Error deleting session messages:', error);
+        return false;
+      }
+
+      return true;
+    } catch (error) {
+      console.error('Error in deleteSessionMessages:', error);
+      return false;
+    }
+  },
+
   // 활성 세션 가져오기 또는 새로 생성
   async getOrCreateActiveSession(userId: string): Promise<ChatSession | null> {
     try {
