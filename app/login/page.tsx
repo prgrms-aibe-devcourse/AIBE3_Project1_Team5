@@ -20,6 +20,8 @@ export default function LoginPage() {
   const { signIn, isLoading } = useAuth();
   const { emailError, passwordError, handleEmailChange, handlePasswordChange } =
     useInputValidator();
+
+  // 모든 필드가 채워져 있고, 에러가 없을 때만 활성화
   const isFormValid = !emailError && !passwordError;
 
   const handleSubmit = async (e: React.FormEvent) => {

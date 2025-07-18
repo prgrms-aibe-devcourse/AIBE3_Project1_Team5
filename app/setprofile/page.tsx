@@ -14,7 +14,6 @@ import { NicknameInput } from '@/app/components/inputForm/NicknameInput';
 export default function SetProfilePage() {
   const [name, setName] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
   const router = useRouter();
   const { user, profile, refreshProfile } = useAuth();
@@ -33,8 +32,6 @@ export default function SetProfilePage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
-    // 이름 관련 에러는 nameError로만 관리 (전역 에러 메시지로 setError 사용하지 않음)
-    if (nameError) return;
     // 이름 관련 에러는 nameError로만 관리 (전역 에러 메시지로 setError 사용하지 않음)
     if (nameError) return;
     if (!user) {
@@ -65,7 +62,6 @@ export default function SetProfilePage() {
     } catch (err) {
       setError('프로필 설정 중 오류가 발생했습니다.');
     } finally {
-      setIsSubmitting(false);
       setIsSubmitting(false);
     }
   };
@@ -147,7 +143,6 @@ export default function SetProfilePage() {
                 className="w-full bg-blue-600 hover:bg-blue-700 text-white py-3 rounded-lg font-medium"
                 disabled={isSubmitting || !!nameError}
               >
-                {isSubmitting ? '설정 중...' : '프로필 설정 완료'}
                 {isSubmitting ? '설정 중...' : '프로필 설정 완료'}
               </Button>
             </form>

@@ -88,11 +88,6 @@ export default function SignUpPage() {
       setError('모든 필드를 입력해주세요.');
       return;
     }
-    // 방어코드: 모든 필드 입력 여부
-    if (!name.trim() || !email.trim() || !password.trim() || !confirmPassword.trim()) {
-      setError('모든 필드를 입력해주세요.');
-      return;
-    }
     // 방어코드: 각 필드별 에러
     if (nameError || emailError || passwordError || confirmPasswordError) {
       setError('입력값을 다시 확인해주세요.');
