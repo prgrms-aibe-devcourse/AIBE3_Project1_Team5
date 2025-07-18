@@ -4,13 +4,13 @@ import type React from 'react';
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { PlaneTakeoff, Save, Loader2 } from 'lucide-react'; // Lucide icons 추가
+import { PlaneTakeoff, Save, Loader2, CalendarDays, MapPin, AlertCircle } from 'lucide-react'; // AlertCircle 아이콘 추가
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
-import { supabase } from '@/lib/supabase'; // Assuming this path is correct and configured
-import { v4 as uuidv4 } from 'uuid'; // Assuming uuid is installed
+import { supabase } from '@/lib/supabase';
+import { v4 as uuidv4 } from 'uuid';
 
 export default function CreateTripPage() {
   const router = useRouter();
@@ -76,91 +76,118 @@ export default function CreateTripPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 py-8">
-      <div className="max-w-xl mx-auto px-4">
-        <Card>
-          <CardHeader className="text-center">
-            <CardTitle className="text-3xl font-bold text-gray-900 flex items-center justify-center gap-2">
-              <PlaneTakeoff className="h-8 w-8 text-blue-600" />
-              새로운 여행 일정 만들기
-            </CardTitle>
-            <CardDescription className="text-gray-600 mt-2">
-              당신의 다음 모험을 위한 완벽한 계획을 시작하세요.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <form onSubmit={handleSubmit} className="space-y-6">
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-purple-50 py-12 px-4 sm:px-6 lg:px-8 flex items-center justify-center">
+      <Card className="w-full max-w-xl shadow-xl border-none animate-fade-in-up hover:shadow-2xl transition-shadow">
+        <CardHeader className="text-center pb-6">
+          <CardTitle className="text-4xl font-extrabold text-gray-900 flex items-center justify-center gap-3">
+            <PlaneTakeoff className="h-10 w-10 text-blue-600" />
+            새로운 여행 일정 만들기
+          </CardTitle>
+          <CardDescription className="text-lg text-gray-600 mt-3">
+            당신의 다음 모험을 위한 완벽한 계획을 시작하세요.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <form onSubmit={handleSubmit} className="space-y-7">
+            <div>
+              <Label htmlFor="title" className="text-base font-medium text-gray-700 mb-2 block">
+                여행 제목
+              </Label>
+              <Input
+                id="title"
+                type="text"
+                placeholder="예: 제주도 힐링 여행, 유럽 배낭여행"
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                maxLength={100}
+                required
+                className="h-12 text-base px-4 border-gray-300 focus:border-blue-500 focus:ring-blue-500 transition-all duration-200"
+              />
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
-                <Label htmlFor="title">여행 제목</Label>
+                <Label
+                  htmlFor="startDate"
+                  className="text-base font-medium text-gray-700 mb-2 block"
+                >
+                  <CalendarDays className="inline-block h-5 w-5 mr-2 text-gray-500" />
+                  출발 날짜
+                </Label>
                 <Input
-                  id="title"
-                  type="text"
-                  placeholder="예: 제주도 힐링 여행, 유럽 배낭여행"
-                  value={title}
-                  onChange={(e) => setTitle(e.target.value)}
-                  maxLength={100}
+                  id="startDate"
+                  type="date"
+                  value={startDate}
+                  onChange={(e) => setStartDate(e.target.value)}
                   required
-                  className="mt-1"
+                  className="h-12 text-base px-4 border-gray-300 focus:border-blue-500 focus:ring-blue-500 transition-all duration-200"
                 />
               </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <Label htmlFor="startDate">출발 날짜</Label>
-                  <Input
-                    id="startDate"
-                    type="date"
-                    value={startDate}
-                    onChange={(e) => setStartDate(e.target.value)}
-                    required
-                    className="mt-1"
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="endDate">도착 날짜</Label>
-                  <Input
-                    id="endDate"
-                    type="date"
-                    value={endDate}
-                    onChange={(e) => setEndDate(e.target.value)}
-                    required
-                    className="mt-1"
-                  />
-                </div>
-              </div>
-
               <div>
-                <Label htmlFor="destination">목적지</Label>
+                <Label htmlFor="endDate" className="text-base font-medium text-gray-700 mb-2 block">
+                  <CalendarDays className="inline-block h-5 w-5 mr-2 text-gray-500" />
+                  도착 날짜
+                </Label>
                 <Input
-                  id="destination"
-                  type="text"
-                  placeholder="예: 서울, 제주도, 파리"
-                  value={destination}
-                  onChange={(e) => setDestination(e.target.value)}
+                  id="endDate"
+                  type="date"
+                  value={endDate}
+                  onChange={(e) => setEndDate(e.target.value)}
                   required
-                  className="mt-1"
+                  className="h-12 text-base px-4 border-gray-300 focus:border-blue-500 focus:ring-blue-500 transition-all duration-200"
                 />
               </div>
+            </div>
 
-              {error && <div className="text-red-500 text-sm mt-2">{error}</div>}
+            <div>
+              <Label
+                htmlFor="destination"
+                className="text-base font-medium text-gray-700 mb-2 block"
+              >
+                <MapPin className="inline-block h-5 w-5 mr-2 text-gray-500" />
+                목적지
+              </Label>
+              <Input
+                id="destination"
+                type="text"
+                placeholder="예: 서울, 제주도, 파리"
+                value={destination}
+                onChange={(e) => setDestination(e.target.value)}
+                required
+                className="h-12 text-base px-4 border-gray-300 focus:border-blue-500 focus:ring-blue-500 transition-all duration-200"
+              />
+            </div>
 
-              <Button type="submit" className="w-full py-2" disabled={loading}>
-                {loading ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    저장 중...
-                  </>
-                ) : (
-                  <>
-                    <Save className="mr-2 h-4 w-4" />
-                    일정 저장
-                  </>
-                )}
-              </Button>
-            </form>
-          </CardContent>
-        </Card>
-      </div>
+            {error && (
+              <div
+                className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-md text-sm flex items-center gap-2"
+                role="alert"
+              >
+                <AlertCircle className="h-5 w-5 flex-shrink-0" />
+                <span>{error}</span>
+              </div>
+            )}
+
+            <Button
+              type="submit"
+              className="w-full h-12 text-lg font-semibold bg-blue-600 hover:bg-blue-700 transition-colors duration-200 flex items-center justify-center gap-2"
+              disabled={loading}
+            >
+              {loading ? (
+                <>
+                  <Loader2 className="h-5 w-5 animate-spin" />
+                  저장 중...
+                </>
+              ) : (
+                <>
+                  <Save className="h-5 w-5" />
+                  일정 저장
+                </>
+              )}
+            </Button>
+          </form>
+        </CardContent>
+      </Card>
     </div>
   );
 }
