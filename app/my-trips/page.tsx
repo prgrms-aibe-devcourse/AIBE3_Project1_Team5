@@ -145,7 +145,7 @@ export default function MyTripsPage() {
                 <PlaneTakeoff className="h-7 w-7 text-blue-600" />내 여행 일정
               </CardTitle>
               <CardDescription className="mt-1 text-gray-600">
-                계획한 여행들을 한눈에 확인하고 관리하세요.
+                계획한 여행들을 한눈에 확인하고 관리하세요!
               </CardDescription>
             </div>
             <Link href="/planner/create" passHref>
