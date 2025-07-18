@@ -16,6 +16,7 @@ import {
 } from '@/components/ui/select';
 import { Tabs, TabsContent } from '@/components/ui/tabs';
 import { supabase } from '@/lib/supabase';
+import { useRouter } from 'next/navigation';
 
 // 상수 정의
 const REGIONS = [
@@ -75,8 +76,7 @@ const calculateTotalCost = (destination: Destination): number => {
     (destination.cost_flight || 0) +
     (destination.cost_hotel_per_night || 0) +
     (destination.cost_meal_per_day || 0) +
-    (destination.cost_sightseeing_per_day || 0) +
-    (destination.cost_etc_per_day || 0)
+    (destination.cost_sightseeing_per_day || 0)
   );
 };
 
@@ -188,6 +188,7 @@ export default function DestinationsPage() {
   });
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [favorites, setFavorites] = useState<string[]>([]);
+  const router = useRouter();
 
   const filteredDestinations = useFilteredDestinations(destinations, filters);
 
@@ -361,6 +362,7 @@ export default function DestinationsPage() {
                 <DestinationCard
                   key={destination.id}
                   destination={destination}
+                  onClick={() => router.push(`/destinations/${destination.id}`)}
                   isFavorite={favorites.includes(destination.id)}
                   onToggleFavorite={toggleFavorite}
                 />
@@ -405,17 +407,22 @@ const DestinationCard = ({
   destination,
   isFavorite,
   onToggleFavorite,
+  onClick,
 }: {
   destination: Destination;
   isFavorite: boolean;
   onToggleFavorite: (id: string) => void;
+  onClick?: () => void;
 }) => {
   const totalCost = calculateTotalCost(destination);
   const budgetCategory = getBudgetCategory(totalCost);
   const isPopular = (destination.view_count || 0) > POPULAR_THRESHOLD;
 
   return (
-    <Card className="overflow-hidden hover:shadow-lg transition-shadow group cursor-pointer">
+    <Card
+      className="overflow-hidden hover:shadow-lg transition-shadow group cursor-pointer"
+      onClick={onClick}
+    >
       <div className="relative">
         <img
           src={destination.image_url || '/placeholder.svg'}
@@ -476,7 +483,7 @@ const DestinationListItem = ({
 }: {
   destination: Destination;
   isFavorite: boolean;
-  onToggleFavorite: (id: number) => void;
+  onToggleFavorite: (id: string) => void;
 }) => {
   const totalCost = calculateTotalCost(destination);
   const isPopular = (destination.view_count || 0) > POPULAR_THRESHOLD;
