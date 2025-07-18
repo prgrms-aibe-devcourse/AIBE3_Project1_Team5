@@ -6,7 +6,6 @@ import { User } from '@supabase/supabase-js';
 import { useRouter } from 'next/navigation';
 
 interface Profile {
-  id: string;
   name: string;
   modified_at: string;
   created_at: string;
