@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { supabase } from '@/lib/supabase';
-import { GoogleMap, useJsApiLoader, Marker } from '@react-google-maps/api';
+import { GoogleMap, useJsApiLoader, Marker, Polyline } from '@react-google-maps/api';
 import { v4 as uuidv4 } from 'uuid';
 
 const GOOGLE_MAP_LIBRARIES = ['places'];
@@ -57,10 +57,14 @@ export default function EditTripPage() {
   const [isSaving, setIsSaving] = useState(false);
   const [lastSaveTime, setLastSaveTime] = useState<number>(Date.now());
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const [selectedDayForRoute, setSelectedDayForRoute] = useState<string | null>(null);
+  const [mapMarkers, setMapMarkers] = useState<{
+    [date: string]: Array<{ id: string; lat: number; lng: number; label: string }>;
+  }>({});
+  const [mapKey, setMapKey] = useState(0); // GoogleMap 강제 리렌더용
 
   const mapRef = useRef<google.maps.Map | null>(null);
   const activitiesRef = useRef(activities);
-  // activityRefs 관련 선언 제거
 
   // 구글맵 로딩
   const { isLoaded } = useJsApiLoader({
@@ -113,6 +117,80 @@ export default function EditTripPage() {
     if (!tripData?.start_date || !tripData?.end_date) return [];
     return getDateRange(tripData.start_date, tripData.end_date);
   }, [tripData?.start_date, tripData?.end_date]);
+
+  // 선택된 날짜의 마커들
+  const selectedDayMarkers = useMemo(() => {
+    if (!selectedDayForRoute) return [];
+    return mapMarkers[selectedDayForRoute] || [];
+  }, [selectedDayForRoute, mapMarkers]);
+
+  // 경로 그리기 함수
+  const handleDrawRoute = (date: string) => {
+    setSelectedDayForRoute(date);
+
+    // 해당 날짜의 마커들이 있으면 첫 번째 마커를 중심으로 설정
+    const dayMarkers = mapMarkers[date] || [];
+    if (dayMarkers.length > 0) {
+      setMapCenter({ lat: dayMarkers[0].lat, lng: dayMarkers[0].lng });
+      setMapZoom(12);
+    }
+  };
+
+  // 경로 그리기 취소
+  const handleClearRoute = () => {
+    setSelectedDayForRoute(null);
+    setMapKey((k) => k + 1); // 지도 강제 리렌더
+  };
+
+  // 지도 클릭 핸들러
+  const handleMapClick = (event: google.maps.MapMouseEvent) => {
+    if (!selectedDayForRoute || !event.latLng) return;
+
+    const lat = event.latLng.lat();
+    const lng = event.latLng.lng();
+    const markerId = uuidv4();
+
+    // 해당 날짜의 마커 배열 가져오기
+    const currentMarkers = mapMarkers[selectedDayForRoute] || [];
+    const newMarker = {
+      id: markerId,
+      lat,
+      lng,
+      label:
+        currentMarkers.length === 0
+          ? `Day ${days.findIndex((d) => d.toISOString().slice(0, 10) === selectedDayForRoute) + 1}`
+          : `${currentMarkers.length + 1}`,
+    };
+
+    // 마커 추가
+    setMapMarkers((prev) => ({
+      ...prev,
+      [selectedDayForRoute]: [...currentMarkers, newMarker],
+    }));
+  };
+
+  // 마커 삭제 함수
+  const handleDeleteMarker = (markerId: string) => {
+    if (!selectedDayForRoute) return;
+
+    setMapMarkers((prev) => ({
+      ...prev,
+      [selectedDayForRoute]:
+        prev[selectedDayForRoute]?.filter((marker) => marker.id !== markerId) || [],
+    }));
+  };
+
+  // 마커 전체 삭제 함수
+  const handleClearAllMarkers = () => {
+    if (!selectedDayForRoute) return;
+    if (window.confirm('모든 마커를 삭제하시겠습니까?')) {
+      setMapMarkers((prev) => ({
+        ...prev,
+        [selectedDayForRoute]: [],
+      }));
+      setMapKey((k) => k + 1); // 지도 강제 리렌더
+    }
+  };
 
   // 활동 추가
   const handleAddActivity = async (date: string) => {
@@ -294,11 +372,34 @@ export default function EditTripPage() {
                     const acts = activities
                       .filter((a) => a.date === dateStr)
                       .sort((a, b) => a.order - b.order);
+                    const isRouteSelected = selectedDayForRoute === dateStr;
+                    const dayMarkers = mapMarkers[dateStr] || [];
+
                     return (
                       <div key={dateStr} className="border rounded-lg p-4 bg-gray-50">
                         <div className="flex items-center justify-between mb-2">
-                          <div className="font-semibold">
-                            Day {dayIdx + 1} - {dateStr}
+                          <div className="flex items-center gap-2">
+                            <div className="font-semibold">
+                              Day {dayIdx + 1} - {dateStr}
+                            </div>
+                            {isRouteSelected ? (
+                              <div className="flex items-center gap-2">
+                                <Button size="sm" variant="destructive" onClick={handleClearRoute}>
+                                  경로 숨기기 ({dayMarkers.length}개 마커)
+                                </Button>
+                                <Button size="sm" variant="outline" onClick={handleClearAllMarkers}>
+                                  전체 지우기
+                                </Button>
+                              </div>
+                            ) : (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => handleDrawRoute(dateStr)}
+                              >
+                                경로 그려보기
+                              </Button>
+                            )}
                           </div>
                           <Button
                             size="sm"
@@ -387,10 +488,11 @@ export default function EditTripPage() {
       </div>
       {/* 오른쪽: 구글지도 공간 */}
       <div className="w-1/2 flex flex-col bg-white h-screen">
-        <div className="flex-1 flex items-center justify-center">
+        <div className="flex-1 flex items-center justify-center relative">
           <div className="w-5/6 h-5/6 border-2 border-dashed border-blue-300 rounded-xl flex flex-col items-center justify-center">
             {isLoaded ? (
               <GoogleMap
+                key={mapKey}
                 mapContainerStyle={{ width: '100%', height: '100%' }}
                 center={mapCenter}
                 zoom={mapZoom}
@@ -402,13 +504,68 @@ export default function EditTripPage() {
                     setMapZoom(mapRef.current.getZoom() || 10);
                   }
                 }}
+                onClick={handleMapClick}
               >
+                {/* 마커 추가 안내 메시지 */}
+                {selectedDayForRoute && (
+                  <div className="absolute top-4 left-1/2 transform -translate-x-1/2 z-10 bg-blue-600 text-white px-3 py-1 rounded-lg shadow-lg text-sm font-semibold">
+                    💡 지도를 클릭하여 마커를 추가하세요!
+                  </div>
+                )}
+                {/* 기본 마커 (목적지) */}
                 <Marker position={mapCenter} />
-                {activities
-                  .filter((a) => a.lat && a.lng)
-                  .map((a, i) => (
-                    <Marker key={i} position={{ lat: a.lat, lng: a.lng }} />
-                  ))}
+
+                {/* 선택된 날짜의 마커들과 경로 */}
+                {selectedDayForRoute && selectedDayMarkers.length > 0 && (
+                  <>
+                    {/* 마커들 */}
+                    {selectedDayMarkers.map((marker, index) => (
+                      <Marker
+                        key={marker.id}
+                        position={{ lat: marker.lat, lng: marker.lng }}
+                        label={{
+                          text: marker.label,
+                          color: '#1f2937',
+                          fontSize: '16px',
+                          fontWeight: 'bold',
+                          className: 'marker-label',
+                        }}
+                        icon={{
+                          url: 'https://maps.google.com/mapfiles/ms/icons/red-dot.png',
+                          scaledSize: new google.maps.Size(35, 35),
+                          labelOrigin: new google.maps.Point(17.5, -10),
+                        }}
+                        onClick={() => {
+                          if (window.confirm('이 마커를 삭제하시겠습니까?')) {
+                            handleDeleteMarker(marker.id);
+                          }
+                        }}
+                      />
+                    ))}
+
+                    {/* 마커 간 경로 (Polyline) */}
+                    {selectedDayMarkers.length > 1 && (
+                      <Polyline
+                        path={selectedDayMarkers.map((marker) => ({
+                          lat: marker.lat,
+                          lng: marker.lng,
+                        }))}
+                        options={{
+                          strokeColor: '#FF0000',
+                          strokeOpacity: 0.8,
+                          strokeWeight: 3,
+                          geodesic: true,
+                        }}
+                      />
+                    )}
+                  </>
+                )}
+
+                {/* 기존 모든 활동 마커들 (경로 그리기 모드가 아닐 때만) */}
+                {!selectedDayForRoute &&
+                  activities
+                    .filter((a) => a.lat && a.lng)
+                    .map((a, i) => <Marker key={i} position={{ lat: a.lat, lng: a.lng }} />)}
               </GoogleMap>
             ) : (
               <span className="text-gray-400">지도를 불러오는 중...</span>
