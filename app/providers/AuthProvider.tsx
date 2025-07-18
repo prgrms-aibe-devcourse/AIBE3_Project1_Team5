@@ -20,6 +20,7 @@ interface AuthContextType {
   signIn: (email: string, password: string) => Promise<{ error: Error | null }>;
   signInWithGithub: () => Promise<{ error: Error | null }>;
   signInWithGoogle: () => Promise<{ error: Error | null }>;
+  signInWithKakao: () => Promise<{ error: Error | null }>;
   refreshProfile: () => Promise<void>;
   signOut: () => Promise<void>;
 }
@@ -188,6 +189,31 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return { error };
   };
 
+  const signInWithKakao = async () => {
+    setIsLoading(true);
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: 'kakao',
+      options: {
+        redirectTo: `${window.location.origin}/setprofile`,
+      },
+    });
+
+    if (!error) {
+      // Kakao 로그인 성공 시 profile 갱신
+      const user = (await supabase.auth.getUser()).data.user;
+      if (user) {
+        const profileData = await getProfile(user.id);
+        setProfile(profileData);
+      }
+      // 로그인 성공 시에만 홈화면으로 이동
+      router.push('/');
+    }
+
+    // 로그인 성공/실패와 관계없이 프로필 로딩 완료 후 로딩 상태 해제
+    setIsLoading(false);
+    return { error };
+  };
+
   const refreshProfile = async () => {
     if (user) {
       const profileData = await getProfile(user.id);
@@ -208,6 +234,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     signIn,
     signInWithGithub,
     signInWithGoogle,
+    signInWithKakao,
     refreshProfile,
     signOut,
   };
