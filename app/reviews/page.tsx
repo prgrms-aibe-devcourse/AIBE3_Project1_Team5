@@ -92,6 +92,9 @@ export default function ReviewsPage() {
   const [sortBy, setSortBy] = useState('latest');
   const [showWriteReview, setShowWriteReview] = useState(false);
 
+  const [travelsList, setTravelsList] = useState<{ id: string; name_kr: string }[]>([]);
+  const [selectedTravelId, setSelectedTravelId] = useState('default');
+
   const [travel, setTravel] = useState('');
   const [content, setContent] = useState('');
   const [score, setScore] = useState(5.0);
@@ -106,6 +109,46 @@ export default function ReviewsPage() {
   const [editImages, setEditImages] = useState<File[]>([]);
   const [imageAction, setImageAction] = useState<'keep' | 'replace' | 'remove'>('keep');
   const editFileInputRef = useRef<HTMLInputElement>(null);
+
+  const [searchField, setSearchField] = useState<'destination' | 'author' | 'content'>('content');
+
+  const [filteredReviews, setFilteredReviews] = useState<Review[]>([]);
+
+  useEffect(() => {
+    setFilteredReviews(reviews);
+  }, [reviews]);
+
+  useEffect(() => {
+    const fetchTravels = async () => {
+      const { data, error } = await supabase.from('travels').select('id, name_kr');
+      if (!error && data) setTravelsList(data);
+    };
+    fetchTravels();
+  }, []);
+
+  const handleSearch = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!searchQuery.trim()) {
+      setFilteredReviews(reviews);
+      return;
+    }
+    const query = searchQuery.trim().toLowerCase();
+    let result: Review[] = [];
+    if (searchField === 'destination') {
+      result = reviews.filter(
+        (review) =>
+          review.travels &&
+          (Array.isArray(review.travels) ? review.travels[0]?.name_kr : review.travels.name_kr)
+            ?.toLowerCase()
+            .includes(query)
+      );
+    } else if (searchField === 'author') {
+      result = reviews.filter((review) => userNames[review.user_id]?.toLowerCase().includes(query));
+    } else if (searchField === 'content') {
+      result = reviews.filter((review) => review.content.toLowerCase().includes(query));
+    }
+    setFilteredReviews(result);
+  };
 
   // 후기 수정 함수
   const handleEditReview = async (reviewId: string) => {
@@ -355,13 +398,6 @@ export default function ReviewsPage() {
     }
   };
 
-  // const filteredReviews = reviews.filter((review) => {
-  //   const matchesSearch = review.content.toLowerCase().includes(searchQuery.toLowerCase());
-  //   const matchesDestination =
-  //     selectedDestination === '전체' || review.travels?.name_kr === selectedDestination;
-  //   return matchesSearch && matchesDestination;
-  // });
-
   // 이미지 input 입력
   const handleImageChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -390,10 +426,8 @@ export default function ReviewsPage() {
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-
-    // 필수 필드 검증
-    if (!travel.trim()) {
-      alert('목적지를 입력해주세요.');
+    if (!selectedTravelId || selectedTravelId === 'default') {
+      alert('여행지를 선택해주세요.');
       return;
     }
 
@@ -412,7 +446,7 @@ export default function ReviewsPage() {
           content,
           score,
           user_id: user?.id,
-          travel_id: travel,
+          travel_id: selectedTravelId,
         })
         .select()
         .single();
@@ -476,7 +510,6 @@ export default function ReviewsPage() {
       setContent('');
       setScore(5.0);
       setImages([]);
-      setTravel('');
       setShowWriteReview(false);
     } catch (error) {
       console.error('후기 등록 중 오류:', error);
@@ -523,45 +556,37 @@ export default function ReviewsPage() {
           </Button>
         </div>
 
-        {/* 검색 Filters (일단 유지하지만 구현 기능에 따라 삭제 예정) */}
-        {/* <Card className="mb-6">
-          <CardContent className="pt-6">
-            <div className="flex flex-col md:flex-row gap-4">
-              <div className="flex-1">
-                <div className="relative">
-                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
-                  <Input
-                    placeholder="후기 검색..."
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    className="pl-10"
-                  />
-                </div>
-              </div>
-              <Select value={selectedDestination} onValueChange={setSelectedDestination}>
-                <SelectTrigger className="w-full md:w-48">
-                  <SelectValue placeholder="목적지 선택" />
+        {/* 후기 검색 및 필터링 */}
+        <Card className="mb-6">
+          <CardContent className="py-4">
+            <form onSubmit={handleSearch} className="flex flex-col sm:flex-row items-center gap-2">
+              <Input
+                type="text"
+                placeholder="후기 검색"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="flex-1 min-w-0"
+              />
+              <Select
+                value={searchField}
+                onValueChange={(v) => setSearchField(v as 'destination' | 'author' | 'content')}
+              >
+                <SelectTrigger className="w-32">
+                  <SelectValue placeholder="검색 기준" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="전체">전체</SelectItem>
-                  <SelectItem value="제주도">제주도</SelectItem>
-                  <SelectItem value="부산">부산</SelectItem>
-                  <SelectItem value="경주">경주</SelectItem>
-                  <SelectItem value="서울">서울</SelectItem>
+                  <SelectItem value="destination">여행지</SelectItem>
+                  <SelectItem value="author">작성자</SelectItem>
+                  <SelectItem value="content">후기 내용</SelectItem>
                 </SelectContent>
               </Select>
-              <Select value={sortBy} onValueChange={setSortBy}>
-                <SelectTrigger className="w-full md:w-48">
-                  <SelectValue placeholder="정렬" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="latest">최신순</SelectItem>
-                  <SelectItem value="rating">평점순</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+              <Button type="submit" className="flex items-center gap-1">
+                <Search className="w-4 h-4" />
+                검색
+              </Button>
+            </form>
           </CardContent>
-        </Card> */}
+        </Card>
 
         {/* 후기 작성 모달 */}
         {showWriteReview && (
@@ -574,13 +599,22 @@ export default function ReviewsPage() {
               <form onSubmit={handleSubmit}>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                   <div>
-                    <label className="block text-sm font-medium mb-2">목적지</label>
-                    <Input
-                      name="travel"
-                      value={travel}
-                      onChange={(e) => setTravel(e.target.value)}
-                      placeholder="여행한 목적지를 입력하세요"
-                    />
+                    <label className="block text-sm font-medium mb-2">여행지</label>
+                    <Select value={selectedTravelId} onValueChange={setSelectedTravelId}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="여행지를 선택하세요" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="default" disabled>
+                          여행지를 선택하세요
+                        </SelectItem>
+                        {travelsList.map((travel) => (
+                          <SelectItem key={travel.id} value={travel.id}>
+                            {travel.name_kr}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   </div>
                   <div>
                     <label className="block text-sm font-medium mb-2">평점</label>
@@ -692,29 +726,23 @@ export default function ReviewsPage() {
         )}
 
         {/* 후기 리스트*/}
-
-        {/* 후기가 없을 때 */}
-        {reviews.length === 0 && (
+        {filteredReviews.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-16 bg-white rounded-lg shadow-md border border-gray-100">
             <div className="mb-4">
               <Star className="w-12 h-12 text-gray-300" />
             </div>
-            <div className="text-lg font-semibold text-gray-700 mb-2">
-              아직 등록된 후기가 없습니다
-            </div>
-            <div className="text-gray-500 mb-6">가장 먼저 여행 후기를 남겨보세요!</div>
+            <div className="text-lg font-semibold text-gray-700 mb-2">검색된된 후기가 없습니다</div>
+            <div className="text-gray-500 mb-6">여행 후기를 남겨보세요!</div>
             <Button
               onClick={handleWriteReviewClick}
               className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-full shadow"
             >
-              첫 번째 후기 작성하기
+              후기 작성하기
             </Button>
           </div>
-        )}
-        {/* 후기가 있을 때 */}
-        <div className="space-y-6">
-          {reviews.map((review) => (
-            <Card key={review.id} className="overflow-hidden">
+        ) : (
+          filteredReviews.map((review) => (
+            <Card key={review.id} className="overflow-hidden mb-3">
               <div className="flex flex-row items-stretch">
                 {/* 이미지 영역 */}
                 <div className="w-40 flex-shrink-0 flex items-center justify-center bg-gray-100">
@@ -977,14 +1005,29 @@ export default function ReviewsPage() {
                         </div>
                       </div>
                     ) : (
-                      <p className="text-gray-700 mb-4 leading-relaxed">{review.content}</p>
+                      <>
+                        <p className="text-gray-700 mb-4 leading-relaxed">{review.content}</p>
+                        <div className="flex justify-end mt-2">
+                          <span className="text-xs text-gray-400">
+                            {(() => {
+                              const d = new Date(review.created_at);
+                              const yyyy = d.getFullYear();
+                              const mm = String(d.getMonth() + 1).padStart(2, '0');
+                              const dd = String(d.getDate()).padStart(2, '0');
+                              const hh = String(d.getHours()).padStart(2, '0');
+                              const min = String(d.getMinutes()).padStart(2, '0');
+                              return `${yyyy}.${mm}.${dd} ${hh}:${min}`;
+                            })()}
+                          </span>
+                        </div>
+                      </>
                     )}
                   </CardContent>
                 </div>
               </div>
             </Card>
-          ))}
-        </div>
+          ))
+        )}
       </div>
     </div>
   );
