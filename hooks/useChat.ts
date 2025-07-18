@@ -16,6 +16,7 @@ interface Message {
   showSettingButtons?: boolean; // 설정 버튼 표시 여부
   showSettingEditor?: boolean; // 설정 편집기 표시 여부
   currentSettings?: any; // 현재 설정 (편집기용)
+  isWelcomeMessage?: boolean; // 웰컴 메시지 여부 (중복 감지 제외용)
 }
 
 // 키워드 기반 의도 분석
@@ -288,7 +289,7 @@ function isDuplicateResponse(newResponse: string, recentMessages: Message[]): bo
   }
 
   const recentAiMessages = recentMessages
-    .filter(msg => msg.role === 'assistant' && msg.content && typeof msg.content === 'string')
+    .filter(msg => msg.role === 'assistant' && msg.content && typeof msg.content === 'string' && !msg.isWelcomeMessage) // 웰컴 메시지 제외
     .slice(-3) // 최근 3개 AI 응답만 확인
     .map(msg => msg.content.toLowerCase().replace(/\s/g, ''));
   
@@ -420,6 +421,7 @@ export function useChat() {
             role: 'assistant',
             content: '안녕하세요! 여행 계획을 도와드릴 AI 어시스턴트입니다. 어떤 여행을 계획하고 계신가요?',
             timestamp: new Date(),
+            isWelcomeMessage: true,
           };
           setMessages([welcomeMessage]);
         } else {
@@ -1225,6 +1227,7 @@ export function useChat() {
             role: 'assistant',
             content: '안녕하세요! 여행 계획을 도와드릴 AI 어시스턴트입니다. 어떤 여행을 계획하고 계신가요?',
             timestamp: new Date(),
+            isWelcomeMessage: true,
           },
         ]);
       }
@@ -1243,14 +1246,22 @@ export function useChat() {
     try {
       console.log('💬 대화 내용 클리어 시작 (여행 계획 유지)');
       
-      // 1. UI에서 메시지 제거
-      setMessages([]);
-      console.log('✅ UI messages cleared');
-      
-      // 2. DB에서 해당 세션의 메시지 삭제
+      // 1. DB에서 해당 세션의 메시지 삭제
       console.log('🗑️ Deleting chat messages from database...');
       const messageDeleteResult = await chatService.deleteSessionMessages(currentSession.id);
       console.log('Chat messages delete result:', messageDeleteResult);
+      
+      // 2. UI에서 메시지 제거 후 웰컴 메시지 추가
+      setMessages([
+        {
+          id: 'welcome-' + Date.now(),
+          role: 'assistant',
+          content: '안녕하세요! 여행 계획을 도와드릴 AI 어시스턴트입니다. 어떤 여행을 계획하고 계신가요?',
+          timestamp: new Date(),
+          isWelcomeMessage: true,
+        }
+      ]);
+      console.log('✅ UI messages cleared and welcome message added');
       
       console.log('💬 대화 내용만 클리어됨 (여행 계획 유지)');
     } catch (error) {
@@ -1268,14 +1279,22 @@ export function useChat() {
     try {
       console.log('🧹 Starting to clear all records for session:', currentSession.id);
       
-      // 1. UI에서 메시지 제거 (welcome 메시지 없이)
-      setMessages([]);
-      console.log('✅ UI messages cleared');
-      
-      // 2. DB에서 해당 세션의 메시지 삭제
+      // 1. DB에서 해당 세션의 메시지 삭제
       console.log('🗑️ Deleting chat messages from database...');
       const messageDeleteResult = await chatService.deleteSessionMessages(currentSession.id);
       console.log('Chat messages delete result:', messageDeleteResult);
+      
+      // 2. UI에서 메시지 제거 후 웰컴 메시지 추가
+      setMessages([
+        {
+          id: 'welcome-' + Date.now(),
+          role: 'assistant',
+          content: '안녕하세요! 여행 계획을 도와드릴 AI 어시스턴트입니다. 어떤 여행을 계획하고 계신가요?',
+          timestamp: new Date(),
+          isWelcomeMessage: true,
+        }
+      ]);
+      console.log('✅ UI messages cleared and welcome message added');
       
       // 3. 세션 파라미터 삭제
       console.log('🗑️ Deleting session parameters...');
