@@ -34,8 +34,8 @@ const REGIONS = [
 const BUDGETS = ['전체', '저예산', '중간예산', '고예산'];
 
 const BUDGET_THRESHOLDS = {
-  LOW: 100000,
-  HIGH: 300000,
+  LOW: 6000000,
+  HIGH: 10000000, // 예산 기준 수정
 };
 
 const POPULAR_THRESHOLD = 1000;
