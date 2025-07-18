@@ -1,11 +1,12 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { Search, MapPin, Star, Heart, Grid, List } from 'lucide-react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
+import { Search, MapPin, Star, Heart, Grid, List, AlertCircle, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import {
   Select,
   SelectContent,
@@ -16,9 +17,31 @@ import {
 import { Tabs, TabsContent } from '@/components/ui/tabs';
 import { supabase } from '@/lib/supabase';
 
-// 여행지 데이터 타입 정의 (Supabase 테이블 구조에 맞춤)
+// 상수 정의
+const REGIONS = [
+  '전체',
+  '동아시아',
+  '동남아시아',
+  '유럽',
+  '북미',
+  '남미',
+  '오세아니아',
+  '아프리카',
+  '중동',
+];
+
+const BUDGETS = ['전체', '저예산', '중간예산', '고예산'];
+
+const BUDGET_THRESHOLDS = {
+  LOW: 100000,
+  HIGH: 300000,
+};
+
+const POPULAR_THRESHOLD = 1000;
+
+// 타입 정의
 interface Destination {
-  id: number;
+  id: string;
   name_kr: string;
   name_en?: string;
   country: string;
@@ -30,7 +53,7 @@ interface Destination {
   cost_flight?: number;
   cost_hotel_per_night?: number;
   cost_meal_per_day?: number;
-  cost_sightseeing?: number;
+  cost_sightseeing_per_day?: number;
   tips?: string;
   best_time?: string;
   weather_spring?: string;
@@ -39,87 +62,178 @@ interface Destination {
   weather_winter?: string;
 }
 
-// 필터 옵션들
-const regions = [
-  '전체',
-  '동아시아',
-  '동남아시아',
-  '유럽',
-  '북미',
-  '남미',
-  '오세아니아',
-  '아프리카',
-  '중동',
-];
-const budgets = ['전체', '저예산', '중간예산', '고예산'];
+interface FilterState {
+  searchQuery: string;
+  selectedRegion: string;
+  selectedBudget: string;
+  showPopularOnly: boolean;
+}
 
-export default function DestinationsPage() {
-  // 타입을 명시적으로 지정
+// 유틸리티 함수들
+const calculateTotalCost = (destination: Destination): number => {
+  return (
+    (destination.cost_flight || 0) +
+    (destination.cost_hotel_per_night || 0) +
+    (destination.cost_meal_per_day || 0) +
+    (destination.cost_sightseeing_per_day || 0) +
+    (destination.cost_etc_per_day || 0)
+  );
+};
+
+const getBudgetCategory = (totalCost: number): string => {
+  if (totalCost < BUDGET_THRESHOLDS.LOW) return '저예산';
+  if (totalCost > BUDGET_THRESHOLDS.HIGH) return '고예산';
+  return '중간예산';
+};
+
+const formatCurrency = (amount: number): string => {
+  return amount.toLocaleString() + '원';
+};
+
+// 커스텀 훅: 데이터 관리
+const useDestinations = () => {
   const [destinations, setDestinations] = useState<Destination[]>([]);
   const [loading, setLoading] = useState(true);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [selectedRegion, setSelectedRegion] = useState('전체');
-  const [selectedBudget, setSelectedBudget] = useState('전체');
-  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
-  const [showPopularOnly, setShowPopularOnly] = useState(false);
-  const [favorites, setFavorites] = useState<number[]>([]);
+  const [error, setError] = useState<string | null>(null);
 
-  // Supabase에서 여행지 데이터 가져오기
-  const fetchDestinations = async () => {
+  const fetchDestinations = useCallback(async () => {
     setLoading(true);
+    setError(null);
+
     try {
-      const { data, error } = await supabase.from('travels').select('*');
+      // order 문법 수정: .desc() 메서드 사용
+      const { data, error } = await supabase
+        .from('travels')
+        .select(
+          `
+          id,
+          name_kr,
+          name_en,
+          country,
+          region,
+          description,
+          image_url,
+          rating_num,
+          view_count,
+          cost_flight,
+          cost_hotel_per_night,
+          cost_meal_per_day,
+          cost_sightseeing_per_day,
+          tips,
+          best_time,
+          weather_spring,
+          weather_summer,
+          weather_autumn,
+          weather_winter
+        `
+        )
+        .order('view_count', { ascending: false }); // 올바른 문법
 
       if (error) {
-        console.error('Supabase fetch error:', error);
-        setDestinations([]);
-      } else {
-        setDestinations(data || []);
+        console.error('Supabase 에러:', error);
+        throw error;
       }
-    } catch (error) {
-      console.error('Fetch error:', error);
-      setDestinations([]);
+
+      console.log('✅ 데이터 로드 성공:', data?.length || 0, '개');
+      setDestinations(data || []);
+    } catch (err) {
+      console.error('데이터 로드 오류:', err);
+      setError(err instanceof Error ? err.message : '데이터를 불러오는 중 오류가 발생했습니다.');
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
+
+  return { destinations, loading, error, fetchDestinations };
+};
+
+// 커스텀 훅: 필터링 로직
+const useFilteredDestinations = (destinations: Destination[], filters: FilterState) => {
+  return useMemo(() => {
+    return destinations.filter((destination) => {
+      // 검색어 필터링
+      const matchesSearch =
+        !filters.searchQuery ||
+        destination.name_kr?.toLowerCase().includes(filters.searchQuery.toLowerCase()) ||
+        destination.name_en?.toLowerCase().includes(filters.searchQuery.toLowerCase()) ||
+        destination.country?.toLowerCase().includes(filters.searchQuery.toLowerCase()) ||
+        destination.description?.toLowerCase().includes(filters.searchQuery.toLowerCase());
+
+      // 지역 필터링
+      const matchesRegion =
+        filters.selectedRegion === '전체' || destination.region === filters.selectedRegion;
+
+      // 예산 필터링
+      const totalCost = calculateTotalCost(destination);
+      const budgetCategory = getBudgetCategory(totalCost);
+      const matchesBudget =
+        filters.selectedBudget === '전체' || budgetCategory === filters.selectedBudget;
+
+      // 인기 여행지 필터링
+      const matchesPopular =
+        !filters.showPopularOnly || (destination.view_count || 0) > POPULAR_THRESHOLD;
+
+      return matchesSearch && matchesRegion && matchesBudget && matchesPopular;
+    });
+  }, [destinations, filters]);
+};
+
+export default function DestinationsPage() {
+  const { destinations, loading, error, fetchDestinations } = useDestinations();
+  const [filters, setFilters] = useState<FilterState>({
+    searchQuery: '',
+    selectedRegion: '전체',
+    selectedBudget: '전체',
+    showPopularOnly: false,
+  });
+  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
+  const [favorites, setFavorites] = useState<string[]>([]);
+
+  const filteredDestinations = useFilteredDestinations(destinations, filters);
 
   useEffect(() => {
     fetchDestinations();
+  }, [fetchDestinations]);
+
+  const handleFilterChange = useCallback((key: keyof FilterState, value: string | boolean) => {
+    setFilters((prev) => ({ ...prev, [key]: value }));
   }, []);
 
-  // 필터링 로직
-  const filteredDestinations = destinations.filter((destination) => {
-    const matchesSearch =
-      destination.name_kr?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      destination.name_en?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      destination.country?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      destination.description?.toLowerCase().includes(searchQuery.toLowerCase());
+  const resetFilters = useCallback(() => {
+    setFilters({
+      searchQuery: '',
+      selectedRegion: '전체',
+      selectedBudget: '전체',
+      showPopularOnly: false,
+    });
+  }, []);
 
-    const matchesRegion = selectedRegion === '전체' || destination.region === selectedRegion;
-
-    // 예산 필터링 - cost 필드들을 기준으로 계산
-    const totalCost =
-      (destination.cost_flight || 0) +
-      (destination.cost_hotel_per_night || 0) +
-      (destination.cost_meal_per_day || 0) +
-      (destination.cost_sightseeing || 0);
-
-    let budgetCategory = '중간예산';
-    if (totalCost < 100000) budgetCategory = '저예산';
-    else if (totalCost > 300000) budgetCategory = '고예산';
-
-    const matchesBudget = selectedBudget === '전체' || budgetCategory === selectedBudget;
-    const matchesPopular = !showPopularOnly || (destination.view_count || 0) > 1000;
-
-    return matchesSearch && matchesRegion && matchesBudget && matchesPopular;
-  });
-
-  const toggleFavorite = (id: number) => {
+  // 수정된 toggleFavorite 함수 (id가 string이므로)
+  const toggleFavorite = useCallback((id: string) => {
     setFavorites((prev) => (prev.includes(id) ? prev.filter((fav) => fav !== id) : [...prev, id]));
-  };
+  }, []);
 
-  // 로딩 상태 표시
+  // 에러 상태 처리
+  if (error) {
+    return (
+      <div className="min-h-screen bg-gray-50 py-8">
+        <div className="max-w-7xl mx-auto px-4">
+          <Alert className="mb-6">
+            <AlertCircle className="h-4 w-4" />
+            <AlertDescription className="flex items-center justify-between">
+              <span>오류가 발생했습니다: {error}</span>
+              <Button variant="outline" size="sm" onClick={fetchDestinations} className="ml-4">
+                <RefreshCw className="h-4 w-4 mr-2" />
+                다시 시도
+              </Button>
+            </AlertDescription>
+          </Alert>
+        </div>
+      </div>
+    );
+  }
+
+  // 로딩 상태 처리
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 py-8">
@@ -153,8 +267,8 @@ export default function DestinationsPage() {
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
                 <Input
                   placeholder="여행지, 국가, 키워드로 검색..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
+                  value={filters.searchQuery}
+                  onChange={(e) => handleFilterChange('searchQuery', e.target.value)}
                   className="pl-10 text-lg h-12"
                 />
               </div>
@@ -162,12 +276,15 @@ export default function DestinationsPage() {
               {/* Filters */}
               <div className="flex flex-col md:flex-row gap-4 items-center justify-between">
                 <div className="flex flex-wrap gap-4">
-                  <Select value={selectedRegion} onValueChange={setSelectedRegion}>
+                  <Select
+                    value={filters.selectedRegion}
+                    onValueChange={(value) => handleFilterChange('selectedRegion', value)}
+                  >
                     <SelectTrigger className="w-32">
                       <SelectValue placeholder="지역" />
                     </SelectTrigger>
                     <SelectContent>
-                      {regions.map((region) => (
+                      {REGIONS.map((region) => (
                         <SelectItem key={region} value={region}>
                           {region}
                         </SelectItem>
@@ -175,12 +292,15 @@ export default function DestinationsPage() {
                     </SelectContent>
                   </Select>
 
-                  <Select value={selectedBudget} onValueChange={setSelectedBudget}>
+                  <Select
+                    value={filters.selectedBudget}
+                    onValueChange={(value) => handleFilterChange('selectedBudget', value)}
+                  >
                     <SelectTrigger className="w-32">
                       <SelectValue placeholder="예산" />
                     </SelectTrigger>
                     <SelectContent>
-                      {budgets.map((budget) => (
+                      {BUDGETS.map((budget) => (
                         <SelectItem key={budget} value={budget}>
                           {budget}
                         </SelectItem>
@@ -189,8 +309,8 @@ export default function DestinationsPage() {
                   </Select>
 
                   <Button
-                    variant={showPopularOnly ? 'default' : 'outline'}
-                    onClick={() => setShowPopularOnly(!showPopularOnly)}
+                    variant={filters.showPopularOnly ? 'default' : 'outline'}
+                    onClick={() => handleFilterChange('showPopularOnly', !filters.showPopularOnly)}
                     className="flex items-center space-x-2"
                   >
                     <Star className="h-4 w-4" />
@@ -219,12 +339,18 @@ export default function DestinationsPage() {
           </CardContent>
         </Card>
 
-        {/* Results Count */}
-        <div className="mb-6">
+        {/* Results Info */}
+        <div className="mb-6 flex items-center justify-between">
           <p className="text-gray-600">
             총 <span className="font-semibold text-blue-600">{filteredDestinations.length}</span>
-            개의 여행지를 찾았습니다
+            개의 여행지를 찾았습니다 (전체 {destinations.length}개 중)
           </p>
+
+          {filteredDestinations.length !== destinations.length && (
+            <Button variant="outline" size="sm" onClick={resetFilters}>
+              필터 초기화
+            </Button>
+          )}
         </div>
 
         {/* Destinations Grid/List */}
@@ -232,86 +358,12 @@ export default function DestinationsPage() {
           <TabsContent value="grid">
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
               {filteredDestinations.map((destination) => (
-                <Card
+                <DestinationCard
                   key={destination.id}
-                  className="overflow-hidden hover:shadow-lg transition-shadow group cursor-pointer"
-                >
-                  <div className="relative">
-                    <img
-                      src={destination.image_url || '/placeholder.svg'}
-                      alt={destination.name_kr}
-                      className="w-full h-48 object-cover group-hover:scale-105 transition-transform duration-300"
-                    />
-                    <div className="absolute top-4 right-4 flex space-x-2">
-                      {destination.view_count > 1000 && (
-                        <Badge className="bg-red-500 text-white">인기</Badge>
-                      )}
-                      <Button
-                        size="sm"
-                        variant="secondary"
-                        className="p-2 h-8 w-8 rounded-full bg-white/90 hover:bg-white"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          toggleFavorite(destination.id);
-                        }}
-                      >
-                        <Heart
-                          className={`h-4 w-4 ${
-                            favorites.includes(destination.id)
-                              ? 'text-red-500 fill-current'
-                              : 'text-gray-600'
-                          }`}
-                        />
-                      </Button>
-                    </div>
-                    <div className="absolute bottom-4 left-4 bg-white/90 rounded-full px-2 py-1 flex items-center">
-                      <Star className="h-4 w-4 text-yellow-400 fill-current mr-1" />
-                      <span className="text-sm font-medium">{destination.rating_num || 0}</span>
-                      <span className="text-xs text-gray-500 ml-1">
-                        ({destination.view_count || 0})
-                      </span>
-                    </div>
-                  </div>
-                  <CardHeader className="pb-2">
-                    <div className="flex justify-between items-start">
-                      <div>
-                        <CardTitle className="text-lg">{destination.name_kr}</CardTitle>
-                        <CardDescription className="flex items-center text-gray-500">
-                          <MapPin className="h-3 w-3 mr-1" />
-                          {destination.country}
-                        </CardDescription>
-                      </div>
-                      <Badge variant="outline" className="text-xs">
-                        {(() => {
-                          const totalCost =
-                            (destination.cost_flight || 0) +
-                            (destination.cost_hotel_per_night || 0) +
-                            (destination.cost_meal_per_day || 0) +
-                            (destination.cost_sightseeing || 0);
-                          if (totalCost < 100000) return '저예산';
-                          if (totalCost > 300000) return '고예산';
-                          return '중간예산';
-                        })()}
-                      </Badge>
-                    </div>
-                  </CardHeader>
-                  <CardContent className="pt-0">
-                    <p className="text-sm text-gray-600 mb-3 line-clamp-2">
-                      {destination.description}
-                    </p>
-                    <div className="flex flex-wrap gap-1 mb-3">
-                      {destination.tips && (
-                        <Badge variant="secondary" className="text-xs">
-                          #{destination.tips.substring(0, 10)}...
-                        </Badge>
-                      )}
-                    </div>
-                    <div className="text-xs text-gray-500">
-                      <span className="font-medium">최적 시기:</span>{' '}
-                      {destination.best_time || '연중'}
-                    </div>
-                  </CardContent>
-                </Card>
+                  destination={destination}
+                  isFavorite={favorites.includes(destination.id)}
+                  onToggleFavorite={toggleFavorite}
+                />
               ))}
             </div>
           </TabsContent>
@@ -319,114 +371,19 @@ export default function DestinationsPage() {
           <TabsContent value="list">
             <div className="space-y-4">
               {filteredDestinations.map((destination) => (
-                <Card
+                <DestinationListItem
                   key={destination.id}
-                  className="overflow-hidden hover:shadow-lg transition-shadow cursor-pointer"
-                >
-                  <div className="flex">
-                    <div className="relative w-64 h-48 flex-shrink-0">
-                      <img
-                        src={destination.image_url || '/placeholder.svg'}
-                        alt={destination.name_kr}
-                        className="w-full h-full object-cover"
-                      />
-                      <div className="absolute top-4 right-4 flex space-x-2">
-                        {destination.view_count > 1000 && (
-                          <Badge className="bg-red-500 text-white">인기</Badge>
-                        )}
-                      </div>
-                    </div>
-                    <div className="flex-1 p-6">
-                      <div className="flex justify-between items-start mb-2">
-                        <div>
-                          <h3 className="text-xl font-bold text-gray-900">{destination.name_kr}</h3>
-                          <div className="flex items-center text-gray-500 mb-2">
-                            <MapPin className="h-4 w-4 mr-1" />
-                            <span>{destination.country}</span>
-                          </div>
-                        </div>
-                        <div className="flex items-center space-x-4">
-                          <div className="flex items-center">
-                            <Star className="h-4 w-4 text-yellow-400 fill-current mr-1" />
-                            <span className="font-medium">{destination.rating_num || 0}</span>
-                            <span className="text-gray-500 ml-1">
-                              ({destination.view_count || 0})
-                            </span>
-                          </div>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              toggleFavorite(destination.id);
-                            }}
-                          >
-                            <Heart
-                              className={`h-4 w-4 mr-1 ${
-                                favorites.includes(destination.id)
-                                  ? 'text-red-500 fill-current'
-                                  : 'text-gray-600'
-                              }`}
-                            />
-                            찜하기
-                          </Button>
-                        </div>
-                      </div>
-
-                      <p className="text-gray-600 mb-4">{destination.description}</p>
-
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                        <div>
-                          <span className="text-sm font-medium text-gray-700">여행 팁:</span>
-                          <p className="text-sm text-gray-600 mt-1">
-                            {destination.tips || '정보 없음'}
-                          </p>
-                        </div>
-                        <div>
-                          <span className="text-sm font-medium text-gray-700">최적 시기:</span>
-                          <p className="text-sm text-gray-600 mt-1">
-                            {destination.best_time || '연중'}
-                          </p>
-                        </div>
-                      </div>
-
-                      <div className="grid grid-cols-2 gap-4 mb-4">
-                        <div>
-                          <span className="text-sm font-medium text-gray-700">예상 비용:</span>
-                          <div className="text-sm text-gray-600 mt-1">
-                            <div>항공료: {(destination.cost_flight || 0).toLocaleString()}원</div>
-                            <div>
-                              숙박 (1박): {(destination.cost_hotel_per_night || 0).toLocaleString()}
-                              원
-                            </div>
-                            <div>
-                              식비 (1일): {(destination.cost_meal_per_day || 0).toLocaleString()}원
-                            </div>
-                            <div>
-                              관광비: {(destination.cost_sightseeing || 0).toLocaleString()}원
-                            </div>
-                          </div>
-                        </div>
-                        <div>
-                          <span className="text-sm font-medium text-gray-700">날씨 정보:</span>
-                          <div className="text-sm text-gray-600 mt-1">
-                            <div>봄: {destination.weather_spring || '정보 없음'}</div>
-                            <div>여름: {destination.weather_summer || '정보 없음'}</div>
-                            <div>가을: {destination.weather_autumn || '정보 없음'}</div>
-                            <div>겨울: {destination.weather_winter || '정보 없음'}</div>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </Card>
+                  destination={destination}
+                  isFavorite={favorites.includes(destination.id)}
+                  onToggleFavorite={toggleFavorite}
+                />
               ))}
             </div>
           </TabsContent>
         </Tabs>
 
         {/* No Results */}
-        {filteredDestinations.length === 0 && !loading && (
+        {filteredDestinations.length === 0 && (
           <Card>
             <CardContent className="text-center py-12">
               <div className="text-gray-400 mb-4">
@@ -434,16 +391,7 @@ export default function DestinationsPage() {
               </div>
               <h3 className="text-lg font-medium text-gray-900 mb-2">검색 결과가 없습니다</h3>
               <p className="text-gray-500 mb-4">다른 검색어나 필터를 시도해보세요</p>
-              <Button
-                onClick={() => {
-                  setSearchQuery('');
-                  setSelectedRegion('전체');
-                  setSelectedBudget('전체');
-                  setShowPopularOnly(false);
-                }}
-              >
-                필터 초기화
-              </Button>
+              <Button onClick={resetFilters}>필터 초기화</Button>
             </CardContent>
           </Card>
         )}
@@ -451,3 +399,171 @@ export default function DestinationsPage() {
     </div>
   );
 }
+
+// 개별 카드 컴포넌트
+const DestinationCard = ({
+  destination,
+  isFavorite,
+  onToggleFavorite,
+}: {
+  destination: Destination;
+  isFavorite: boolean;
+  onToggleFavorite: (id: string) => void;
+}) => {
+  const totalCost = calculateTotalCost(destination);
+  const budgetCategory = getBudgetCategory(totalCost);
+  const isPopular = (destination.view_count || 0) > POPULAR_THRESHOLD;
+
+  return (
+    <Card className="overflow-hidden hover:shadow-lg transition-shadow group cursor-pointer">
+      <div className="relative">
+        <img
+          src={destination.image_url || '/placeholder.svg'}
+          alt={destination.name_kr}
+          className="w-full h-48 object-cover group-hover:scale-105 transition-transform duration-300"
+        />
+        <div className="absolute top-4 right-4 flex space-x-2">
+          {isPopular && <Badge className="bg-red-500 text-white">인기</Badge>}
+          <Button
+            size="sm"
+            variant="secondary"
+            className="p-2 h-8 w-8 rounded-full bg-white/90 hover:bg-white"
+            onClick={(e) => {
+              e.stopPropagation();
+              onToggleFavorite(destination.id);
+            }}
+          >
+            <Heart
+              className={`h-4 w-4 ${isFavorite ? 'text-red-500 fill-current' : 'text-gray-600'}`}
+            />
+          </Button>
+        </div>
+        <div className="absolute bottom-4 left-4 bg-white/90 rounded-full px-2 py-1 flex items-center">
+          <Star className="h-4 w-4 text-yellow-400 fill-current mr-1" />
+          <span className="text-sm font-medium">{destination.rating_num || 0}</span>
+          <span className="text-xs text-gray-500 ml-1">({destination.view_count || 0})</span>
+        </div>
+      </div>
+      <CardHeader className="pb-2">
+        <div className="flex justify-between items-start">
+          <div>
+            <CardTitle className="text-lg">{destination.name_kr}</CardTitle>
+            <CardDescription className="flex items-center text-gray-500">
+              <MapPin className="h-3 w-3 mr-1" />
+              {destination.country}
+            </CardDescription>
+          </div>
+          <Badge variant="outline" className="text-xs">
+            {budgetCategory}
+          </Badge>
+        </div>
+      </CardHeader>
+      <CardContent className="pt-0">
+        <p className="text-sm text-gray-600 mb-3 line-clamp-2">{destination.description}</p>
+        <div className="text-xs text-gray-500">
+          <span className="font-medium">최적 시기:</span> {destination.best_time || '연중'}
+        </div>
+      </CardContent>
+    </Card>
+  );
+};
+
+// 리스트 아이템 컴포넌트
+const DestinationListItem = ({
+  destination,
+  isFavorite,
+  onToggleFavorite,
+}: {
+  destination: Destination;
+  isFavorite: boolean;
+  onToggleFavorite: (id: number) => void;
+}) => {
+  const totalCost = calculateTotalCost(destination);
+  const isPopular = (destination.view_count || 0) > POPULAR_THRESHOLD;
+
+  return (
+    <Card className="overflow-hidden hover:shadow-lg transition-shadow cursor-pointer">
+      <div className="flex">
+        <div className="relative w-64 h-48 flex-shrink-0">
+          <img
+            src={destination.image_url || '/placeholder.svg'}
+            alt={destination.name_kr}
+            className="w-full h-full object-cover"
+          />
+          {isPopular && (
+            <div className="absolute top-4 right-4">
+              <Badge className="bg-red-500 text-white">인기</Badge>
+            </div>
+          )}
+        </div>
+        <div className="flex-1 p-6">
+          <div className="flex justify-between items-start mb-2">
+            <div>
+              <h3 className="text-xl font-bold text-gray-900">{destination.name_kr}</h3>
+              <div className="flex items-center text-gray-500 mb-2">
+                <MapPin className="h-4 w-4 mr-1" />
+                <span>{destination.country}</span>
+              </div>
+            </div>
+            <div className="flex items-center space-x-4">
+              <div className="flex items-center">
+                <Star className="h-4 w-4 text-yellow-400 fill-current mr-1" />
+                <span className="font-medium">{destination.rating_num || 0}</span>
+                <span className="text-gray-500 ml-1">({destination.view_count || 0})</span>
+              </div>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onToggleFavorite(destination.id);
+                }}
+              >
+                <Heart
+                  className={`h-4 w-4 mr-1 ${
+                    isFavorite ? 'text-red-500 fill-current' : 'text-gray-600'
+                  }`}
+                />
+                찜하기
+              </Button>
+            </div>
+          </div>
+
+          <p className="text-gray-600 mb-4">{destination.description}</p>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+            <div>
+              <span className="text-sm font-medium text-gray-700">여행 팁:</span>
+              <p className="text-sm text-gray-600 mt-1">{destination.tips || '정보 없음'}</p>
+            </div>
+            <div>
+              <span className="text-sm font-medium text-gray-700">최적 시기:</span>
+              <p className="text-sm text-gray-600 mt-1">{destination.best_time || '연중'}</p>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4 mb-4">
+            <div>
+              <span className="text-sm font-medium text-gray-700">예상 비용:</span>
+              <div className="text-sm text-gray-600 mt-1">
+                <div>항공료: {formatCurrency(destination.cost_flight || 0)}</div>
+                <div>숙박 (1박): {formatCurrency(destination.cost_hotel_per_night || 0)}</div>
+                <div>식비 (1일): {formatCurrency(destination.cost_meal_per_day || 0)}</div>
+                <div>관광비: {formatCurrency(destination.cost_sightseeing_per_day || 0)}</div>
+              </div>
+            </div>
+            <div>
+              <span className="text-sm font-medium text-gray-700">날씨 정보:</span>
+              <div className="text-sm text-gray-600 mt-1">
+                <div>봄: {destination.weather_spring || '정보 없음'}</div>
+                <div>여름: {destination.weather_summer || '정보 없음'}</div>
+                <div>가을: {destination.weather_autumn || '정보 없음'}</div>
+                <div>겨울: {destination.weather_winter || '정보 없음'}</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </Card>
+  );
+};
