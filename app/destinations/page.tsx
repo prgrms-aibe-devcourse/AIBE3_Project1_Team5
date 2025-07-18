@@ -17,6 +17,7 @@ import {
 import { Tabs, TabsContent } from '@/components/ui/tabs';
 import { supabase } from '@/lib/supabase';
 import { useRouter } from 'next/navigation';
+import Image from 'next/image';
 
 // 상수 정의
 const REGIONS = [
@@ -34,8 +35,8 @@ const REGIONS = [
 const BUDGETS = ['전체', '저예산', '중간예산', '고예산'];
 
 const BUDGET_THRESHOLDS = {
-  LOW: 6000000,
-  HIGH: 10000000, // 예산 기준 수정
+  LOW: 200000,
+  HIGH: 900000,
 };
 
 const POPULAR_THRESHOLD = 1000;
@@ -414,6 +415,9 @@ const DestinationCard = ({
   onToggleFavorite: (id: string) => void;
   onClick?: () => void;
 }) => {
+  const [imageLoaded, setImageLoaded] = useState(false);
+  const [imageError, setImageError] = useState(false);
+
   const totalCost = calculateTotalCost(destination);
   const budgetCategory = getBudgetCategory(totalCost);
   const isPopular = (destination.view_count || 0) > POPULAR_THRESHOLD;
@@ -424,11 +428,43 @@ const DestinationCard = ({
       onClick={onClick}
     >
       <div className="relative">
-        <img
-          src={destination.image_url || '/placeholder.svg'}
-          alt={destination.name_kr}
-          className="w-full h-48 object-cover group-hover:scale-105 transition-transform duration-300"
-        />
+        {/* 이미지 로딩 상태 배경 */}
+        <div className="relative w-full h-48 bg-gray-100">
+          <Image
+            src={destination.image_url || '/placeholder.svg'}
+            alt={destination.name_kr}
+            fill
+            className={`object-cover group-hover:scale-105 transition-all duration-300 ${
+              imageLoaded ? 'opacity-100' : 'opacity-0'
+            }`}
+            sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+            priority={isPopular} // 인기 여행지만 우선 로드
+            onLoad={() => setImageLoaded(true)}
+            onError={() => {
+              setImageError(true);
+              setImageLoaded(true); // 에러 상태에서도 로딩 완료로 처리
+            }}
+          />
+
+          {/* 로딩 스피너 */}
+          {!imageLoaded && !imageError && (
+            <div className="absolute inset-0 flex items-center justify-center">
+              <div className="w-8 h-8 border-2 border-gray-300 border-t-blue-500 rounded-full animate-spin"></div>
+            </div>
+          )}
+
+          {/* 이미지 로드 실패 시 대체 표시 */}
+          {imageError && (
+            <div className="absolute inset-0 flex items-center justify-center bg-gray-100">
+              <div className="text-center text-gray-400">
+                <MapPin className="h-12 w-12 mx-auto mb-2" />
+                <p className="text-sm">이미지를 불러올 수 없습니다</p>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* 오버레이 컨텐츠 */}
         <div className="absolute top-4 right-4 flex space-x-2">
           {isPopular && <Badge className="bg-red-500 text-white">인기</Badge>}
           <Button
@@ -445,12 +481,14 @@ const DestinationCard = ({
             />
           </Button>
         </div>
+
         <div className="absolute bottom-4 left-4 bg-white/90 rounded-full px-2 py-1 flex items-center">
           <Star className="h-4 w-4 text-yellow-400 fill-current mr-1" />
           <span className="text-sm font-medium">{destination.rating_num || 0}</span>
           <span className="text-xs text-gray-500 ml-1">({destination.view_count || 0})</span>
         </div>
       </div>
+
       <CardHeader className="pb-2">
         <div className="flex justify-between items-start">
           <div>
@@ -465,6 +503,7 @@ const DestinationCard = ({
           </Badge>
         </div>
       </CardHeader>
+
       <CardContent className="pt-0">
         <p className="text-sm text-gray-600 mb-3 line-clamp-2">{destination.description}</p>
         <div className="text-xs text-gray-500">
@@ -492,10 +531,13 @@ const DestinationListItem = ({
     <Card className="overflow-hidden hover:shadow-lg transition-shadow cursor-pointer">
       <div className="flex">
         <div className="relative w-64 h-48 flex-shrink-0">
-          <img
+          <Image
             src={destination.image_url || '/placeholder.svg'}
             alt={destination.name_kr}
-            className="w-full h-full object-cover"
+            fill
+            className="object-cover group-hover:scale-105 transition-transform duration-300"
+            sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+            priority={isPopular} // 인기 여행지만 우선 로드
           />
           {isPopular && (
             <div className="absolute top-4 right-4">
