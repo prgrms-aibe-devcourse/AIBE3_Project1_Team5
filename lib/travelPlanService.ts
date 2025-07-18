@@ -13,7 +13,7 @@ export interface SessionParameters {
   transportation?: string;
   accommodation?: string;
   travel_style?: string;
-  collection_status: 'incomplete' | 'complete';
+  collection_status: 'incomplete' | 'complete' | 'awaiting_confirmation';
   missing_params?: string[];
   created_at: string;
   updated_at: string;
@@ -37,7 +37,6 @@ export interface TravelPlanDB {
   schedule: any; // JSON
   ai_metadata?: any; // JSON
   status: 'draft' | 'confirmed' | 'completed';
-  is_public: boolean;
   share_settings?: any; // JSON
   created_at: string;
   updated_at: string;
@@ -174,8 +173,7 @@ export const travelPlanService = {
             currency: plan.currency,
             totalBudget: plan.totalBudget
           },
-          status: 'draft',
-          is_public: false
+          status: 'draft'
         })
         .select()
         .single();

@@ -1,17 +1,54 @@
 import React, { useState } from 'react';
-import { Calendar, MapPin, Users, DollarSign, Clock, ChevronDown, ChevronUp } from 'lucide-react';
+import { Calendar, MapPin, Users, DollarSign, Clock, ChevronDown, ChevronUp, Download, Edit, Share2, Table } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { TravelPlan, DaySchedule } from '@/lib/openai';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { TravelPlan, ImprovedDaySchedule, TravelOverview, MealSummary, CostBreakdown } from '@/lib/openai';
+import TravelPlanTableModal from './TravelPlanTableModal';
+import { printTravelPlan, generateTravelPlanImage, downloadBlob } from '@/lib/pdfGenerator';
 
 interface TravelPlanCardProps {
   plan: TravelPlan;
   onDetailView?: () => void;
+  onModify?: () => void;
+  onShare?: () => void;
+  onDownload?: () => void;
 }
 
-export default function TravelPlanCard({ plan, onDetailView }: TravelPlanCardProps) {
+export default function TravelPlanCard({ plan, onDetailView, onModify, onShare, onDownload }: TravelPlanCardProps) {
   const [expanded, setExpanded] = useState(false);
+  const [showTableModal, setShowTableModal] = useState(false);
+  const [isDownloading, setIsDownloading] = useState(false);
+
+  // 다운로드 처리 함수
+  const handleDownload = async () => {
+    if (onDownload) {
+      onDownload();
+      return;
+    }
+
+    setIsDownloading(true);
+    try {
+      // 사용자에게 다운로드 형식 선택 제공
+      const choice = window.confirm('PDF로 다운로드하시겠습니까?\n확인: PDF 프린트\n취소: 이미지 다운로드');
+      
+      if (choice) {
+        // PDF 프린트
+        printTravelPlan(plan);
+      } else {
+        // 이미지 다운로드
+        const imageBlob = await generateTravelPlanImage(plan, 'png');
+        const filename = `${plan.title.replace(/[^a-zA-Z0-9가-힣]/g, '_')}_여행계획.png`;
+        downloadBlob(imageBlob, filename);
+      }
+    } catch (error) {
+      console.error('Download error:', error);
+      alert('다운로드 중 오류가 발생했습니다. 다시 시도해주세요.');
+    } finally {
+      setIsDownloading(false);
+    }
+  };
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('ko-KR', {
@@ -42,6 +79,38 @@ export default function TravelPlanCard({ plan, onDetailView }: TravelPlanCardPro
           </Badge>
         </div>
         
+        {/* 여행 개요 정보 */}
+        {plan.overview && (
+          <div className="bg-white rounded-lg p-3 border border-gray-200 mt-3">
+            <div className="grid grid-cols-2 gap-3 text-sm">
+              <div>
+                <span className="font-medium text-gray-700">일정:</span>
+                <span className="ml-2 text-gray-600">{plan.overview.dates}</span>
+              </div>
+              <div>
+                <span className="font-medium text-gray-700">인원:</span>
+                <span className="ml-2 text-gray-600">{plan.overview.people}</span>
+              </div>
+              <div>
+                <span className="font-medium text-gray-700">교통:</span>
+                <span className="ml-2 text-gray-600">{plan.overview.transportation}</span>
+              </div>
+              <div>
+                <span className="font-medium text-gray-700">숙소:</span>
+                <span className="ml-2 text-gray-600">{plan.overview.accommodation}</span>
+              </div>
+              <div className="col-span-2">
+                <span className="font-medium text-gray-700">테마:</span>
+                <span className="ml-2 text-gray-600">{plan.overview.theme}</span>
+              </div>
+              <div className="col-span-2">
+                <span className="font-medium text-gray-700">예산:</span>
+                <span className="ml-2 text-blue-600 font-semibold">{plan.overview.budgetRange}</span>
+              </div>
+            </div>
+          </div>
+        )}
+        
         <div className="flex flex-wrap gap-4 mt-3 text-sm text-gray-600">
           <div className="flex items-center gap-1">
             <Calendar className="h-4 w-4" />
@@ -70,11 +139,11 @@ export default function TravelPlanCard({ plan, onDetailView }: TravelPlanCardPro
           </h4>
           
           <div className="space-y-2">
-            {plan.schedule.slice(0, expanded ? plan.schedule.length : 3).map((day: DaySchedule, index: number) => (
+            {plan.schedule.slice(0, expanded ? plan.schedule.length : 2).map((day: ImprovedDaySchedule, index: number) => (
               <div key={index} className="bg-white rounded-lg p-3 border border-gray-200">
                 <div className="flex justify-between items-start mb-2">
                   <h5 className="font-medium text-gray-900">
-                    {day.day}일차: {day.title}
+                    {day.title}
                   </h5>
                   {day.totalCost && (
                     <span className="text-sm text-gray-600">
@@ -83,18 +152,24 @@ export default function TravelPlanCard({ plan, onDetailView }: TravelPlanCardPro
                   )}
                 </div>
                 
-                <p className="text-sm text-gray-600 mb-2">{day.description}</p>
-                
                 {expanded && (
                   <div className="space-y-1 mt-2">
                     {day.items.slice(0, 3).map((item, itemIndex) => (
-                      <div key={itemIndex} className="flex justify-between items-center text-xs text-gray-500">
-                        <span>{item.time} - {item.activity}</span>
-                        <span>{item.location}</span>
+                      <div key={itemIndex} className="flex justify-between items-center text-xs text-gray-500 py-1 border-b border-gray-100 last:border-0">
+                        <div className="flex items-center gap-2">
+                          <span className="font-mono text-blue-600">{item.time}</span>
+                          <span>{item.status}</span>
+                          <span>{item.activity}</span>
+                        </div>
+                        <span className="text-right">
+                          {item.cost > 0 && (
+                            <span className="text-green-600 font-medium">{formatCurrency(item.cost)}</span>
+                          )}
+                        </span>
                       </div>
                     ))}
                     {day.items.length > 3 && (
-                      <div className="text-xs text-gray-400 text-center">
+                      <div className="text-xs text-gray-400 text-center py-1">
                         외 {day.items.length - 3}개 일정
                       </div>
                     )}
@@ -104,7 +179,7 @@ export default function TravelPlanCard({ plan, onDetailView }: TravelPlanCardPro
             ))}
           </div>
           
-          {plan.schedule.length > 3 && (
+          {plan.schedule.length > 2 && (
             <Button
               variant="ghost"
               size="sm"
@@ -156,16 +231,65 @@ export default function TravelPlanCard({ plan, onDetailView }: TravelPlanCardPro
           </div>
         )}
 
+        {/* 식사 요약 */}
+        {plan.mealSummary && plan.mealSummary.length > 0 && (
+          <div className="bg-orange-50 border border-orange-200 rounded-lg p-3">
+            <h4 className="font-semibold text-orange-800 mb-2 flex items-center gap-2">
+              🍽️ 식사 요약
+            </h4>
+            <div className="space-y-1">
+              {plan.mealSummary.slice(0, 3).map((meal, index) => (
+                <div key={index} className="flex justify-between items-center text-sm">
+                  <span className="text-orange-700">
+                    {meal.day} {meal.meal}: {meal.restaurant}
+                  </span>
+                  <span className={`font-medium ${
+                    meal.status.includes('✅') ? 'text-green-600' : 
+                    meal.status.includes('❌') ? 'text-red-600' : 'text-yellow-600'
+                  }`}>
+                    {meal.status}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
         {/* 액션 버튼 */}
-        <div className="flex gap-2 pt-2">
-          <Button
-            onClick={onDetailView}
-            className="flex-1 bg-blue-600 hover:bg-blue-700 text-white"
-          >
-            자세한 일정 보기
+        <div className="grid grid-cols-2 gap-2 pt-2">
+          <Dialog open={showTableModal} onOpenChange={setShowTableModal}>
+            <DialogTrigger asChild>
+              <Button className="bg-blue-600 hover:bg-blue-700 text-white flex items-center gap-2">
+                <Table className="h-4 w-4" />
+                전체 일정표
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
+              <DialogHeader>
+                <DialogTitle>{plan.title}</DialogTitle>
+              </DialogHeader>
+              <TravelPlanTableModal plan={plan} />
+            </DialogContent>
+          </Dialog>
+          
+          <Button variant="outline" onClick={onModify} className="flex items-center gap-2">
+            <Edit className="h-4 w-4" />
+            수정하기
           </Button>
-          <Button variant="outline" className="flex-1">
-            일정 수정하기
+          
+          <Button 
+            variant="outline" 
+            onClick={handleDownload} 
+            disabled={isDownloading}
+            className="flex items-center gap-2"
+          >
+            <Download className="h-4 w-4" />
+            {isDownloading ? '처리중...' : '다운로드'}
+          </Button>
+          
+          <Button variant="outline" onClick={onShare} className="flex items-center gap-2">
+            <Share2 className="h-4 w-4" />
+            공유하기
           </Button>
         </div>
       </CardContent>

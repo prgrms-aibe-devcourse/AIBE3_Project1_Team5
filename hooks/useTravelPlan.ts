@@ -40,7 +40,7 @@ export function useTravelPlan() {
   }, []);
 
   // 파라미터 추출
-  const extractParameters = useCallback(async (message: string): Promise<ParameterCollectionStatus> => {
+  const extractParameters = useCallback(async (message: string, existingParams?: any): Promise<ParameterCollectionStatus & { destinationChanged?: boolean }> => {
     try {
       setState('extracting');
       setError(null);
@@ -52,7 +52,8 @@ export function useTravelPlan() {
         },
         body: JSON.stringify({ 
           message, 
-          action: 'extractParams' 
+          action: 'extractParams',
+          existingParams 
         }),
       });
 

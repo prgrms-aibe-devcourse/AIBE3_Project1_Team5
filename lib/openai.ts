@@ -47,8 +47,83 @@ export interface DaySchedule {
   currency?: string;
 }
 
-// 전체 여행 일정 인터페이스
+// 개선된 여행 일정 아이템 인터페이스
+export interface ImprovedScheduleItem {
+  time: string;
+  activity: string;
+  location: string;
+  status: '✅' | '❌' | '🔜';
+  note?: string;
+  cost: number;
+  duration?: string;
+  transportation?: string;
+}
+
+// 개선된 일별 일정 인터페이스
+export interface ImprovedDaySchedule {
+  day: number;
+  date: string;
+  title: string;
+  items: ImprovedScheduleItem[];
+  totalCost: number;
+}
+
+// 식사 요약 인터페이스
+export interface MealSummary {
+  day: string;
+  meal: string;
+  restaurant: string;
+  status: string;
+  cost: number;
+}
+
+// 비용 분석 인터페이스
+export interface CostBreakdown {
+  transportation: number;
+  accommodation: number;
+  meals: number;
+  activities: number;
+  others: number;
+  total: number;
+}
+
+// 여행 개요 인터페이스
+export interface TravelOverview {
+  dates: string;
+  people: string;
+  transportation: string;
+  accommodation: string;
+  theme: string;
+  budgetRange: string;
+}
+
+// 응급 정보 인터페이스
+export interface EmergencyInfo {
+  hospital: string;
+  police: string;
+  embassy?: string;
+}
+
+// 전체 여행 일정 인터페이스 (개선됨)
 export interface TravelPlan {
+  title: string;
+  destination: string;
+  duration: number;
+  startDate: string;
+  endDate: string;
+  totalBudget: number;
+  currency: string;
+  overview: TravelOverview;
+  schedule: ImprovedDaySchedule[];
+  mealSummary: MealSummary[];
+  costBreakdown: CostBreakdown;
+  tips: string[];
+  requirements: string[];
+  emergencyInfo: EmergencyInfo;
+}
+
+// 기존 호환성을 위한 레거시 인터페이스
+export interface LegacyTravelPlan {
   title: string;
   destination: string;
   duration: number;
@@ -102,6 +177,10 @@ Extract the following information:
 - transportation (REQUIRED): Preferred transportation mode (flight, train, car, bus, etc.)
 - accommodation (REQUIRED): Preferred accommodation type (hotel, hostel, airbnb, resort, guesthouse, etc.)
 
+DESTINATION CHANGE DETECTION:
+- If a new destination is mentioned and it's different from any existing destination, mark it as "destinationChanged": true
+- Examples of destination change: "일본 대신 제주도로", "파리 말고 런던으로", "도쿄에서 오사카로 변경"
+
 IMPORTANT RULES:
 1. ALL 7 required parameters must be present to mark as complete
 2. Destination must be specific (not just "Europe" or "Asia")
@@ -129,7 +208,8 @@ Return a JSON object with:
   "collectedParams": { ... only parameters that are specifically mentioned and converted to proper format ... },
   "ambiguousParams": { ... parameters that need clarification with suggested options ... },
   "missingParams": [ ... list of missing required parameters ... ],
-  "isComplete": boolean (true ONLY if ALL 7 required params are present and specific)
+  "isComplete": boolean (true ONLY if ALL 7 required params are present and specific),
+  "destinationChanged": boolean (true if a destination change is detected)
 }
 
 CRITICAL: If user provides ANY word that could be interpreted as a travel style (even unusual ones like "격투여행", "음악여행"), include it in collectedParams as travelStyle.
@@ -207,50 +287,138 @@ Accommodation: {ACCOMMODATION}
 Travel Style: {TRAVEL_STYLE}
 
 Create a realistic and practical travel plan considering:
-1. Actual places, attractions, and restaurants that exist
+1. Actual places, attractions, and restaurants that exist (use real names)
 2. Realistic travel times and distances
 3. Local culture, customs, and etiquette
 4. Weather and seasonal considerations
 5. Visa requirements if applicable
 6. Local currency and realistic costs
 7. Opening hours and days for attractions
+8. Specific restaurant names and their famous dishes
+9. Actual transportation routes and schedules
+10. Real accommodation options with pricing
 
-IMPORTANT: Respond in KOREAN language. All text fields (title, description, activity, location, tips, etc.) must be in Korean.
+IMPORTANT: 
+- Respond in KOREAN language. All text fields must be in Korean.
+- Use REAL, SPECIFIC names of restaurants, cafes, attractions, and accommodations
+- Provide REALISTIC costs and timing
+- Include confirmation status: ✅ (confirmed), ❌ (not decided), 🔜 (planned)
+- Format as a comprehensive table-style itinerary
 
 Return a JSON object with this structure:
 {
-  "title": "여행 제목 (한국어)",
+  "title": "✅ {목적지} {기간} {여행스타일} 플랜 (날짜 / {인원} 기준)",
   "destination": "구체적인 목적지",
   "duration": number,
+  "startDate": "2025-06-05",
+  "endDate": "2025-06-06", 
   "totalBudget": estimated total cost in KRW,
-  "currency": "local currency code",
+  "currency": "KRW",
+  "overview": {
+    "dates": "구체적인 날짜 (예: 2025년 6월 5일(목) ~ 6월 6일(금))",
+    "people": "구체적 인원 (예: 성인 2명)",
+    "transportation": "구체적 교통수단 (예: 서울 ↔ 여수 KTX / 여수 시내 쏘카)",
+    "accommodation": "구체적 숙소명 (예: 신라스테이 여수 (오션뷰 + 조식 포함))",
+    "theme": "여행 테마 키워드들 (예: 가족 / 맛집 / 감성카페 / 문화 / 야경)",
+    "budgetRange": "예산 범위 (예: 약 72~75만원 (2인 기준))"
+  },
   "schedule": [
     {
       "day": 1,
-      "title": "일차 제목 (한국어)",
-      "description": "간단한 일차 개요 (한국어)",
+      "date": "6월 5일 (목)",
+      "title": "DAY 1 – 6월 5일 (목)",
       "items": [
         {
-          "time": "09:00",
-          "activity": "활동명 (한국어)",
-          "location": "구체적인 장소/주소 (한국어)",
-          "duration": "2시간",
-          "cost": 15000,
-          "currency": "KRW",
-          "transportation": "이동 방법 (한국어)",
-          "tips": "도움이 되는 팁 (한국어)"
+          "time": "10:19",
+          "activity": "여수EXPO역 도착",
+          "location": "여수EXPO역",
+          "status": "✅",
+          "note": "KTX",
+          "cost": 0,
+          "duration": "",
+          "transportation": ""
+        },
+        {
+          "time": "11:00", 
+          "activity": "점심: 정다운식당",
+          "location": "정다운식당 (실제 주소)",
+          "status": "✅",
+          "note": "게장정식 추천",
+          "cost": 25000,
+          "duration": "1시간 30분",
+          "transportation": "도보 10분"
         }
       ],
       "totalCost": daily total in KRW
     }
   ],
-  "tips": ["일반적인 여행 팁들 (한국어)"],
-  "requirements": ["비자", "예방접종", "기타 (한국어)"]
+  "mealSummary": [
+    {
+      "day": "Day 1",
+      "meal": "점심",
+      "restaurant": "정다운식당",
+      "status": "✅ 확정",
+      "cost": 25000
+    }
+  ],
+  "costBreakdown": {
+    "transportation": amount,
+    "accommodation": amount,
+    "meals": amount, 
+    "activities": amount,
+    "others": amount,
+    "total": total amount
+  },
+  "tips": ["현실적이고 구체적인 여행 팁들"],
+  "requirements": ["비자", "예방접종", "기타 준비사항"],
+  "emergencyInfo": {
+    "hospital": "현지 병원 정보",
+    "police": "현지 경찰서 정보", 
+    "embassy": "영사관 정보 (해외 여행시)"
+  }
 }
 
-Make the itinerary detailed, practical, and exciting. Include a mix of must-see attractions, local experiences, meals, and free time.
+CRITICAL REQUIREMENTS:
+1. Use REAL restaurant names, not generic ones
+2. Include REAL attraction names with actual addresses
+3. Provide REALISTIC costs based on current market prices
+4. Use confirmation status symbols (✅❌🔜) for each item
+5. Make transportation times and routes realistic
+6. Include specific local dishes and specialties
+7. Format as a structured table-style itinerary
+8. All costs should add up to the specified budget
+9. Include emergency contact information
+10. Make timing realistic considering travel time between locations
 
-REMEMBER: All text content must be in KOREAN language, including titles, descriptions, activities, locations, tips, and requirements.
+REMEMBER: All text content must be in KOREAN language. Create a practical, detailed plan that users can actually follow.
+`,
+
+  generateParameterConfirmation: `
+You are a friendly travel planning assistant. The user has changed their destination and you need to confirm if they want to keep the existing parameters or change them.
+
+Generate a natural, conversational confirmation message in Korean that:
+1. Acknowledges the destination change
+2. Lists the existing parameters for confirmation
+3. Asks if they want to keep them or change them
+4. Provides clear options for the user
+
+Format:
+"{새목적지}로 변경하시는군요! {새목적지}는 {이전목적지}와 다른 매력이 있어서 기존 설정을 확인해드릴게요.
+
+현재 설정:
+• 기간: {duration}
+• 인원: {peopleCount}명  
+• 예산: {budget}원
+• 여행스타일: {travelStyle}
+• 교통수단: {transportation}
+• 숙박: {accommodation}
+
+이 설정들을 그대로 사용하시겠어요?
+- "네, 그대로 해주세요" → 기존 설정 유지
+- "다시 설정할게요" → 처음부터 새로 설정
+- "일부만 바꿀게요" → 원하는 항목만 말씀해주세요"
+
+Be natural and conversational. Always end with clear options for the user.
 `
 };
 
@@ -273,7 +441,7 @@ export async function classifyTravelIntent(
       `\n\nRECENT MESSAGES: ${recentMessages.join(' | ')}` : '';
 
     const response = await openai.chat.completions.create({
-      model: 'gpt-4-turbo-preview',
+      model: 'gpt-4o',
       messages: [
         {
           role: 'system',
@@ -301,14 +469,24 @@ export async function classifyTravelIntent(
 }
 
 // 파라미터 추출 함수
-export async function extractTravelParameters(userMessage: string): Promise<ParameterCollectionStatus> {
+export async function extractTravelParameters(
+  userMessage: string, 
+  existingParams?: any
+): Promise<ParameterCollectionStatus & { destinationChanged?: boolean }> {
   try {
+    let systemPrompt = PROMPTS.extractParameters;
+    
+    // 기존 파라미터가 있으면 목적지 변경 감지를 위해 추가 정보 제공
+    if (existingParams?.destination) {
+      systemPrompt += `\n\nEXISTING DESTINATION: ${existingParams.destination}\nDetect if the user wants to change to a different destination.`;
+    }
+
     const response = await openai.chat.completions.create({
-      model: 'gpt-4-turbo-preview',
+      model: 'gpt-4o',
       messages: [
         {
           role: 'system',
-          content: PROMPTS.extractParameters
+          content: systemPrompt
         },
         {
           role: 'user',
@@ -345,7 +523,7 @@ export async function generateQuestion(missingParam: string): Promise<string> {
     };
 
     const response = await openai.chat.completions.create({
-      model: 'gpt-4-turbo-preview',
+      model: 'gpt-4o',
       messages: [
         {
           role: 'system',
@@ -363,6 +541,42 @@ export async function generateQuestion(missingParam: string): Promise<string> {
   }
 }
 
+// 파라미터 확인 메시지 생성 함수
+export async function generateParameterConfirmation(
+  newDestination: string,
+  previousDestination: string,
+  existingParams: any
+): Promise<string> {
+  try {
+    const formatBudget = (budget: number) => {
+      if (budget >= 1000000) {
+        return `${(budget / 10000).toFixed(0)}만원`;
+      }
+      return `${budget.toLocaleString()}원`;
+    };
+
+    const confirmationMessage = `${newDestination}로 변경하시는군요! ${newDestination}는 ${previousDestination}와 다른 매력이 있어서 기존 설정을 확인해드릴게요.
+
+현재 설정:
+• 기간: ${existingParams.duration || existingParams.duration}일
+• 인원: ${existingParams.people_count || existingParams.peopleCount}명  
+• 예산: ${existingParams.budget ? formatBudget(existingParams.budget) : '미설정'}
+• 여행스타일: ${existingParams.travel_style || existingParams.travelStyle || '미설정'}
+• 교통수단: ${existingParams.transportation || '미설정'}
+• 숙박: ${existingParams.accommodation || '미설정'}
+
+이 설정들을 그대로 사용하시겠어요?
+• "네, 그대로 해주세요" → 기존 설정 유지
+• "다시 설정할게요" → 처음부터 새로 설정  
+• "일부만 바꿀게요" → 원하는 항목만 말씀해주세요`;
+
+    return confirmationMessage;
+  } catch (error) {
+    console.error('Error generating parameter confirmation:', error);
+    return `${newDestination}로 변경하시는군요! 기존 설정을 유지하시겠어요? 아니면 다시 설정하시겠어요?`;
+  }
+}
+
 // 확인 질문 생성 함수
 export async function generateClarificationQuestion(param: string, userInput: string): Promise<string> {
   try {
@@ -377,7 +591,7 @@ export async function generateClarificationQuestion(param: string, userInput: st
     };
 
     const response = await openai.chat.completions.create({
-      model: 'gpt-4-turbo-preview',
+      model: 'gpt-4o',
       messages: [
         {
           role: 'system',
@@ -401,7 +615,7 @@ export async function generateClarificationQuestion(param: string, userInput: st
 export async function validateParameter(paramType: string, userResponse: string): Promise<{isValid: boolean, reason?: string, suggestion?: string}> {
   try {
     const response = await openai.chat.completions.create({
-      model: 'gpt-4-turbo-preview',
+      model: 'gpt-4o',
       messages: [
         {
           role: 'system',
@@ -441,7 +655,7 @@ export async function generateTravelPlan(params: TravelParameters): Promise<Trav
     prompt = prompt.replace('{TRAVEL_STYLE}', params.travelStyle || 'Balanced');
 
     const response = await openai.chat.completions.create({
-      model: 'gpt-4-turbo-preview',
+      model: 'gpt-4o',
       messages: [
         {
           role: 'system',
@@ -488,7 +702,7 @@ export async function generateChatResponse(
     ];
 
     const response = await openai.chat.completions.create({
-      model: 'gpt-4-turbo-preview',
+      model: 'gpt-4o',
       messages: messages,
       temperature: 0.7,
       max_tokens: 500

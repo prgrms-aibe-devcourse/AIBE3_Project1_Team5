@@ -1,12 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { classifyTravelIntent, extractTravelParameters, generateQuestion, generateClarificationQuestion, validateParameter, generateTravelPlan } from '@/lib/openai';
+import { classifyTravelIntent, extractTravelParameters, generateQuestion, generateClarificationQuestion, validateParameter, generateTravelPlan, generateParameterConfirmation } from '@/lib/openai';
 
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { message, action, params, missingParam, hasExistingParams, recentMessages, userInput, paramType } = body;
+    const { message, action, params, missingParam, hasExistingParams, recentMessages, userInput, paramType, newDestination, previousDestination, existingParams } = body;
 
-    if (!message && action !== 'generatePlan' && action !== 'generateQuestion' && action !== 'generateClarificationQuestion' && action !== 'validateParameter') {
+    if (!message && action !== 'generatePlan' && action !== 'generateQuestion' && action !== 'generateClarificationQuestion' && action !== 'validateParameter' && action !== 'generateParameterConfirmation') {
       return NextResponse.json(
         { error: '메시지가 필요합니다.' },
         { status: 400 }
@@ -25,7 +25,7 @@ export async function POST(request: NextRequest) {
 
     // 파라미터 추출
     if (action === 'extractParams') {
-      const result = await extractTravelParameters(message);
+      const result = await extractTravelParameters(message, existingParams);
       return NextResponse.json(result);
     }
 
@@ -65,6 +65,18 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(result);
     }
 
+    // 파라미터 확인 메시지 생성
+    if (action === 'generateParameterConfirmation') {
+      if (!newDestination || !previousDestination || !existingParams) {
+        return NextResponse.json(
+          { error: '목적지 변경 정보가 필요합니다.' },
+          { status: 400 }
+        );
+      }
+      const confirmationMessage = await generateParameterConfirmation(newDestination, previousDestination, existingParams);
+      return NextResponse.json({ confirmationMessage });
+    }
+
     // 여행 일정 생성
     if (action === 'generatePlan') {
       if (!params) {
@@ -78,7 +90,7 @@ export async function POST(request: NextRequest) {
     }
 
     // 기본 파라미터 추출
-    const result = await extractTravelParameters(message);
+    const result = await extractTravelParameters(message, existingParams);
     return NextResponse.json(result);
 
   } catch (error) {

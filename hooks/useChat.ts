@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/app/providers/AuthProvider';
 import { chatService, ChatSession, ChatMessage } from '@/lib/chatService';
+import { ChatSessionService } from '@/lib/chatSessionService';
 import { useTravelPlan } from './useTravelPlan';
 import { travelPlanService } from '@/lib/travelPlanService';
 
@@ -116,6 +117,72 @@ function fallbackKeywordClassification(
   }
   
   return {isTravel: false, reason: 'general_conversation', shouldOfferContinue: false};
+}
+
+// 일정 세부사항 요청 감지 함수
+function isDetailRequest(content: string): boolean {
+  const detailKeywords = [
+    '자세한', '상세', '전체', '일정표', '세부', '더보기', '더 보기',
+    '구체적', '자세히', '상세히', '세부사항', '일정 보여', '계획 보여',
+    '테이블', '표로', '전체보기', '전체 보기'
+  ];
+  
+  const cleanContent = content.toLowerCase().replace(/\s/g, '');
+  return detailKeywords.some(keyword => 
+    cleanContent.includes(keyword.replace(/\s/g, ''))
+  );
+}
+
+// 중복 응답 감지 함수
+function isDuplicateResponse(newResponse: string, recentMessages: Message[]): boolean {
+  const recentAiMessages = recentMessages
+    .filter(msg => msg.role === 'assistant')
+    .slice(-3) // 최근 3개 AI 응답만 확인
+    .map(msg => msg.content.toLowerCase().replace(/\s/g, ''));
+  
+  const newResponseClean = newResponse.toLowerCase().replace(/\s/g, '');
+  
+  // 완전히 동일하거나 80% 이상 유사한 응답인지 확인
+  return recentAiMessages.some(prevResponse => {
+    if (prevResponse === newResponseClean) return true;
+    
+    // 간단한 유사도 체크 (공통 부분 비율)
+    const commonLength = Math.max(prevResponse.length, newResponseClean.length);
+    const similarity = calculateSimilarity(prevResponse, newResponseClean);
+    return similarity > 0.8 && commonLength > 50; // 50자 이상이고 80% 이상 유사
+  });
+}
+
+// 문자열 유사도 계산 (간단한 구현)
+function calculateSimilarity(str1: string, str2: string): number {
+  const longer = str1.length > str2.length ? str1 : str2;
+  const shorter = str1.length > str2.length ? str2 : str1;
+  
+  if (longer.length === 0) return 1.0;
+  
+  const editDistance = getEditDistance(longer, shorter);
+  return (longer.length - editDistance) / longer.length;
+}
+
+// 편집 거리 계산 (레벤슈타인 거리)
+function getEditDistance(str1: string, str2: string): number {
+  const matrix = Array(str2.length + 1).fill(null).map(() => Array(str1.length + 1).fill(null));
+  
+  for (let i = 0; i <= str1.length; i++) matrix[0][i] = i;
+  for (let j = 0; j <= str2.length; j++) matrix[j][0] = j;
+  
+  for (let j = 1; j <= str2.length; j++) {
+    for (let i = 1; i <= str1.length; i++) {
+      const indicator = str1[i - 1] === str2[j - 1] ? 0 : 1;
+      matrix[j][i] = Math.min(
+        matrix[j][i - 1] + 1,
+        matrix[j - 1][i] + 1,
+        matrix[j - 1][i - 1] + indicator
+      );
+    }
+  }
+  
+  return matrix[str2.length][str1.length];
 }
 
 // 일반 대화 응답 생성 헬퍼 함수
@@ -263,6 +330,51 @@ export function useChat() {
         let aiResponse: string;
         
         try {
+          // 우선 일정 세부사항 요청인지 확인 (최근 여행 계획이 있는 경우)
+          if (isDetailRequest(content) && travelPlan.currentPlan) {
+            aiResponse = `📋 현재 여행 계획의 상세 정보입니다!
+
+아래 카드에서 "전체 일정표" 버튼을 클릭하시면 더 자세한 표 형식의 일정을 확인하실 수 있어요. 수정이나 다운로드도 가능합니다! 😊`;
+            
+            // AI 응답 메시지 추가 (임시 ID로)
+            const tempAiMessage: Message = {
+              id: 'temp-ai-' + Date.now(),
+              session_id: currentSession.id,
+              role: 'assistant',
+              content: aiResponse,
+              timestamp: new Date(),
+              user_id: user.id,
+              travelPlan: travelPlan.currentPlan,
+            };
+
+            setMessages((prev) => [...prev, tempAiMessage]);
+
+            // AI 응답 저장
+            const savedAiMessage = await chatService.saveMessage(
+              currentSession.id,
+              user.id,
+              'assistant',
+              aiResponse
+            );
+
+            if (savedAiMessage) {
+              setMessages((prev) =>
+                prev.map((msg) =>
+                  msg.id === tempAiMessage.id
+                    ? {
+                        ...msg,
+                        id: savedAiMessage.id,
+                        timestamp: new Date(savedAiMessage.created_at),
+                        travelPlan: travelPlan.currentPlan,
+                      }
+                    : msg
+                )
+              );
+            }
+            
+            return; // 여기서 함수 종료
+          }
+
           // 2단계: GPT 기반 하이브리드 처리 로직
           const shouldContinueTravel = await shouldProcessAsTravel(content, existingParams, messages);
           
@@ -305,7 +417,117 @@ export function useChat() {
                 }
                 
                 // 새로운 파라미터 추출 및 기존 파라미터와 병합
-                const paramResult = await travelPlan.extractParameters(content);
+                const paramResult = await travelPlan.extractParameters(content, existingParams);
+                
+                // 목적지 변경 감지 및 확인 처리
+                if (paramResult.destinationChanged && existingParams?.destination) {
+                  const newDestination = paramResult.collectedParams.destination;
+                  const previousDestination = existingParams.destination;
+                  
+                  if (newDestination && newDestination !== previousDestination) {
+                    // 기존 파라미터 확인 메시지 생성
+                    const response = await fetch('/api/chat/travel', {
+                      method: 'POST',
+                      headers: {
+                        'Content-Type': 'application/json',
+                      },
+                      body: JSON.stringify({ 
+                        action: 'generateParameterConfirmation',
+                        newDestination,
+                        previousDestination,
+                        existingParams
+                      }),
+                    });
+                    
+                    if (response.ok) {
+                      const result = await response.json();
+                      
+                      // 임시로 목적지만 업데이트하고 확인 대기 상태로 설정
+                      await travelPlanService.createOrUpdateSessionParameters(
+                        currentSession.id,
+                        user.id,
+                        { 
+                          ...currentParams,
+                          destination: newDestination,
+                          collection_status: 'awaiting_confirmation'
+                        },
+                        []
+                      );
+                      
+                      return result.confirmationMessage;
+                    }
+                  }
+                }
+                
+                // 사용자 응답이 확인/거부/부분수정인지 체크
+                const confirmationKeywords = {
+                  keepAll: ['네', '그대로', '유지', '맞아요', '그래요', '계속', '좋아요'],
+                  resetAll: ['다시', '새로', '처음부터', '리셋', '초기화', '안할래'],
+                  partial: ['일부', '부분', '몇개만', '조금만', '바꿀게요']
+                };
+                
+                if (existingParams?.collection_status === 'awaiting_confirmation') {
+                  const userResponse = content.toLowerCase();
+                  
+                  if (confirmationKeywords.keepAll.some(keyword => userResponse.includes(keyword))) {
+                    // 기존 설정 유지하고 계획 생성
+                    const plan = await travelPlan.generateTravelPlan({
+                      ...currentParams,
+                      collection_status: 'complete'
+                    });
+                    
+                    // 완료된 파라미터 저장
+                    await travelPlanService.createOrUpdateSessionParameters(
+                      currentSession.id,
+                      user.id,
+                      { ...currentParams, collection_status: 'complete' },
+                      []
+                    );
+                    
+                    // 여행 계획 저장
+                    await travelPlanService.createTravelPlan(
+                      user.id,
+                      currentSession.id,
+                      currentParams,
+                      plan
+                    );
+                    
+                    return `🎉 ${plan.title}이 완성되었습니다!
+
+📅 ${plan.duration}일간의 멋진 여행을 준비했어요. 아래 일정을 확인하고 필요시 수정하거나 다운로드해주세요.`;
+                  } else if (confirmationKeywords.resetAll.some(keyword => userResponse.includes(keyword))) {
+                    // 모든 파라미터 초기화하고 새로 시작
+                    await travelPlanService.createOrUpdateSessionParameters(
+                      currentSession.id,
+                      user.id,
+                      { destination: currentParams.destination },
+                      ['duration', 'peopleCount', 'budget', 'travelStyle', 'transportation', 'accommodation']
+                    );
+                    
+                    return `${currentParams.destination} 여행을 처음부터 새로 계획해드릴게요! 
+                    
+며칠 동안 여행하실 예정인가요? (예: 2박3일, 1주일 등)`;
+                  } else if (confirmationKeywords.partial.some(keyword => userResponse.includes(keyword))) {
+                    // 부분 수정 모드
+                    return `어떤 항목을 바꾸고 싶으신가요? 
+                    
+현재 설정:
+• 기간: ${currentParams.duration}일
+• 인원: ${currentParams.people_count}명
+• 예산: ${currentParams.budget?.toLocaleString()}원
+• 여행스타일: ${currentParams.travel_style}
+• 교통수단: ${currentParams.transportation}
+• 숙박: ${currentParams.accommodation}
+
+바꾸고 싶은 항목을 말씀해주세요. (예: "예산을 50만원으로 바꿔줘", "3박4일로 연장해줘")`;
+                  }
+                  // 확인 응답이 명확하지 않으면 다시 질문
+                  return `죄송해요, 명확하지 않네요. 다시 선택해주세요:
+                  
+• "네, 그대로 해주세요" → 기존 설정으로 계획 생성
+• "다시 설정할게요" → 처음부터 새로 설정
+• "일부만 바꿀게요" → 원하는 항목만 수정`;
+                }
                 
                 // 자유 입력 필드 유효성 검사
                 const freeInputFields = ['destination', 'transportation', 'accommodation', 'travelStyle'];
@@ -384,16 +606,9 @@ export function useChat() {
                     plan
                   );
                   
-                  return `완벽한 여행 계획을 생성했습니다! 
+                  return `🎉 ${plan.title}이 완성되었습니다!
 
-📍 **${plan.title}**
-📅 총 ${plan.duration}일
-💰 예상 비용: ${plan.totalBudget?.toLocaleString()}원
-
-첫째 날부터 간단히 소개해드릴게요:
-${plan.schedule[0]?.description || '멋진 여행이 시작됩니다!'}
-
-자세한 일정을 확인하시겠어요?`;
+📅 ${plan.duration}일간의 멋진 여행을 준비했어요. 아래 일정을 확인하고 필요시 수정하거나 다운로드해주세요.`;
                 } else {
                   // 부족한 파라미터가 있으면 질문 생성
                   const question = await travelPlan.generateQuestion(missingParams[0]);
@@ -425,6 +640,22 @@ ${plan.schedule[0]?.description || '멋진 여행이 시작됩니다!'}
         } catch (timeoutError) {
           console.error('AI response timeout:', timeoutError);
           aiResponse = '죄송합니다. 응답 생성 중 문제가 발생했습니다. 다시 시도해주세요.';
+        }
+
+        // 중복 응답 감지 및 대체 응답 생성
+        if (isDuplicateResponse(aiResponse, messages)) {
+          console.log('Duplicate response detected, generating alternative');
+          
+          // 대체 응답들
+          const alternatives = [
+            '다른 방식으로 도와드릴까요? 구체적으로 어떤 정보가 필요하신지 말씀해주세요.',
+            '앞서 설명드린 내용과 관련해서 다른 궁금한 점이 있으시면 언제든 말씀해주세요!',
+            '혹시 제가 놓친 부분이 있나요? 더 구체적으로 어떤 도움이 필요하신지 알려주시면 더 정확히 도와드릴 수 있어요.',
+            '다시 한번 정리해서 말씀드리자면... 아니면 다른 관점에서 접근해볼까요?'
+          ];
+          
+          // 랜덤하게 대체 응답 선택
+          aiResponse = alternatives[Math.floor(Math.random() * alternatives.length)];
         }
 
         // AI 응답 메시지 추가 (임시 ID로)
