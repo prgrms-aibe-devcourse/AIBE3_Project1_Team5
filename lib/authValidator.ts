@@ -22,7 +22,11 @@ export function isPasswordMatch(password: string, confirmPassword: string): bool
 }
 
 export async function isNameDuplicated(name: string): Promise<boolean> {
-  const { data, error } = await supabase.from('profiles').select('id').eq('name', name).single();
+  const { data, error } = await supabase
+    .from('profiles')
+    .select('user_id')
+    .eq('name', name)
+    .single();
   // data가 있으면 중복, 없으면 중복 아님
   return !!data;
 }
