@@ -20,7 +20,6 @@ export default function SignUpPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
 
   const { signUp } = useAuth();
@@ -87,6 +86,8 @@ export default function SignUpPage() {
     // 방어코드: 모든 필드 입력 여부
     if (!name.trim() || !email.trim() || !password.trim() || !confirmPassword.trim()) {
       setError('모든 필드를 입력해주세요.');
+      return;
+    }
     // 방어코드: 모든 필드 입력 여부
     if (!name.trim() || !email.trim() || !password.trim() || !confirmPassword.trim()) {
       setError('모든 필드를 입력해주세요.');
@@ -107,7 +108,6 @@ export default function SignUpPage() {
     } catch (err) {
       setError('회원가입 중 오류가 발생했습니다.');
     } finally {
-      setIsSubmitting(false);
       setIsSubmitting(false);
     }
   };
@@ -194,7 +194,6 @@ export default function SignUpPage() {
                 className="w-full bg-blue-600 hover:bg-blue-700 text-white py-3 rounded-lg font-medium"
                 disabled={isSubmitting || !isFormValid}
               >
-                {isSubmitting ? '가입 중...' : '회원가입'}
                 {isSubmitting ? '가입 중...' : '회원가입'}
               </Button>
             </form>

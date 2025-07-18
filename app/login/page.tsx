@@ -20,21 +20,11 @@ export default function LoginPage() {
   const { signIn, isLoading } = useAuth();
   const { emailError, passwordError, handleEmailChange, handlePasswordChange } =
     useInputValidator();
-
-  // 모든 필드가 채워져 있고, 에러가 없을 때만 활성화
-  const isFormValid = !emailError && !passwordError;
-  const { emailError, passwordError, handleEmailChange, handlePasswordChange } =
-    useInputValidator();
-
-  // 모든 필드가 채워져 있고, 에러가 없을 때만 활성화
   const isFormValid = !emailError && !passwordError;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
-    // 방어코드: 각 필드별 에러
-    if (emailError || passwordError) {
-      setError('입력값을 다시 확인해주세요.');
     // 방어코드: 각 필드별 에러
     if (emailError || passwordError) {
       setError('입력값을 다시 확인해주세요.');
@@ -113,7 +103,6 @@ export default function LoginPage() {
               <Button
                 type="submit"
                 className="w-full bg-blue-600 hover:bg-blue-700 text-white py-3 rounded-lg font-medium"
-                disabled={isLoading || !isFormValid}
                 disabled={isLoading || !isFormValid}
               >
                 {isLoading ? '로그인 중...' : '로그인'}
