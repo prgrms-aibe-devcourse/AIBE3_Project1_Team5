@@ -86,12 +86,12 @@ export default function EditTripPage() {
     fetchTrip();
   }, [tripId]);
 
-  // 활동 fetch 함수 분리
+  // 활동 fetch 함수 분리 (user_id 조건 없음)
   const fetchActivities = async () => {
     const { data } = await supabase
       .from('travel_activities')
       .select(
-        'id, travel_id, date, time_ampm, time_hour, time_minute, location, lat, lng, created_at, updated_at'
+        'id, travel_id, date, time_ampm, time_hour, time_minute, location, created_at, updated_at'
       )
       .eq('travel_id', tripId);
     setActivities(data || []);
@@ -202,8 +202,6 @@ export default function EditTripPage() {
       time_hour: null,
       time_minute: null,
       location: '',
-      lat: null,
-      lng: null,
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     };
@@ -268,8 +266,6 @@ export default function EditTripPage() {
                 time_hour: activity.time_hour,
                 time_minute: activity.time_minute,
                 location: activity.location,
-                lat: activity.lat,
-                lng: activity.lng,
                 created_at: activity.created_at,
                 updated_at: activity.updated_at,
               },
@@ -504,68 +500,9 @@ export default function EditTripPage() {
                     setMapZoom(mapRef.current.getZoom() || 10);
                   }
                 }}
-                onClick={handleMapClick}
               >
-                {/* 마커 추가 안내 메시지 */}
-                {selectedDayForRoute && (
-                  <div className="absolute top-4 left-1/2 transform -translate-x-1/2 z-10 bg-blue-600 text-white px-3 py-1 rounded-lg shadow-lg text-sm font-semibold">
-                    💡 지도를 클릭하여 마커를 추가하세요!
-                  </div>
-                )}
-                {/* 기본 마커 (목적지) */}
+                {/* 기본 마커 (목적지)만 표시 */}
                 <Marker position={mapCenter} />
-
-                {/* 선택된 날짜의 마커들과 경로 */}
-                {selectedDayForRoute && selectedDayMarkers.length > 0 && (
-                  <>
-                    {/* 마커들 */}
-                    {selectedDayMarkers.map((marker, index) => (
-                      <Marker
-                        key={marker.id}
-                        position={{ lat: marker.lat, lng: marker.lng }}
-                        label={{
-                          text: marker.label,
-                          color: '#1f2937',
-                          fontSize: '16px',
-                          fontWeight: 'bold',
-                          className: 'marker-label',
-                        }}
-                        icon={{
-                          url: 'https://maps.google.com/mapfiles/ms/icons/red-dot.png',
-                          scaledSize: new google.maps.Size(35, 35),
-                          labelOrigin: new google.maps.Point(17.5, -10),
-                        }}
-                        onClick={() => {
-                          if (window.confirm('이 마커를 삭제하시겠습니까?')) {
-                            handleDeleteMarker(marker.id);
-                          }
-                        }}
-                      />
-                    ))}
-
-                    {/* 마커 간 경로 (Polyline) */}
-                    {selectedDayMarkers.length > 1 && (
-                      <Polyline
-                        path={selectedDayMarkers.map((marker) => ({
-                          lat: marker.lat,
-                          lng: marker.lng,
-                        }))}
-                        options={{
-                          strokeColor: '#FF0000',
-                          strokeOpacity: 0.8,
-                          strokeWeight: 3,
-                          geodesic: true,
-                        }}
-                      />
-                    )}
-                  </>
-                )}
-
-                {/* 기존 모든 활동 마커들 (경로 그리기 모드가 아닐 때만) */}
-                {!selectedDayForRoute &&
-                  activities
-                    .filter((a) => a.lat && a.lng)
-                    .map((a, i) => <Marker key={i} position={{ lat: a.lat, lng: a.lng }} />)}
               </GoogleMap>
             ) : (
               <span className="text-gray-400">지도를 불러오는 중...</span>

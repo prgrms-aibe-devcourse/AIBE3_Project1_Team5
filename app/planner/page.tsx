@@ -90,7 +90,9 @@ export default function PlannerPage() {
             <h2 className="text-2xl font-bold text-center text-gray-900 mb-8">
               여행 계획의 모든 것을 한 곳에서
             </h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              {' '}
+              {/* 2 → 3열로 변경 */}
               <div className="flex items-start space-x-3">
                 <div className="bg-blue-100 rounded-full p-2 mt-1">
                   <Calendar className="h-4 w-4 text-blue-600" />
@@ -109,15 +111,6 @@ export default function PlannerPage() {
                 <div>
                   <h4 className="font-semibold text-gray-900">여행지 검색</h4>
                   <p className="text-gray-600 text-sm">전 세계 여행지를 쉽게 검색하고 선택</p>
-                </div>
-              </div>
-              <div className="flex items-start space-x-3">
-                <div className="bg-purple-100 rounded-full p-2 mt-1">
-                  <Users className="h-4 w-4 text-purple-600" />
-                </div>
-                <div>
-                  <h4 className="font-semibold text-gray-900">동행자 관리</h4>
-                  <p className="text-gray-600 text-sm">함께 여행하는 사람들과 일정 공유</p>
                 </div>
               </div>
               <div className="flex items-start space-x-3">

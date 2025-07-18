@@ -18,6 +18,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton'; // Skeleton 컴포넌트 추가
 import { useRouter } from 'next/navigation'; // useRouter 추가
+import { format } from 'date-fns';
 
 interface Trip {
   id: string;
@@ -32,7 +33,9 @@ export default function MyTripsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [user, setUser] = useState<any>(null);
-  const router = useRouter(); // useRouter 인스턴스 생성
+  const router = useRouter();
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editForm, setEditForm] = useState<Partial<Trip>>({});
 
   useEffect(() => {
     const fetchTrips = async () => {
@@ -73,21 +76,15 @@ export default function MyTripsPage() {
     }
   };
 
-  // 일정 공유 (링크 복사)
-  const handleShare = (id: string) => {
-    const url = `${window.location.origin}/my-trips/edit/${id}`;
-    navigator.clipboard.writeText(url);
-    alert('공유 링크가 복사되었습니다!');
-  };
-
-  // 일정 편집(이동)
-  const handleEdit = (id: string) => {
-    router.push(`/my-trips/edit/${id}`);
-  };
+  // 일정 편집(이동) 함수는 인라인 편집으로 대체
+  // const handleEdit = (id: string) => { router.push(`/my-trips/edit/${id}`); } // 삭제
 
   return (
     <div className="min-h-screen bg-gray-50 py-10">
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="mb-4 text-center text-blue-700 font-semibold text-base">
+          일정을 클릭해 상세 내용을 직접 계획해 보세요!
+        </div>
         <Card className="mb-8 shadow-sm">
           <CardHeader className="flex flex-row justify-between items-center">
             <div>
@@ -162,54 +159,115 @@ export default function MyTripsPage() {
               <Card
                 key={trip.id}
                 className="flex flex-col sm:flex-row items-start sm:items-center bg-white rounded-xl shadow-md hover:shadow-lg transition-all duration-200 p-5 cursor-pointer"
-                onClick={() => handleEdit(trip.id)}
+                onClick={
+                  editingId === trip.id ? undefined : () => router.push(`/my-trips/edit/${trip.id}`)
+                }
               >
                 <div className="flex-1 mb-4 sm:mb-0">
-                  <h2 className="text-2xl font-semibold text-gray-900 mb-2">{trip.title}</h2>
-                  <div className="flex items-center text-gray-600 text-base mb-1">
-                    <CalendarIcon className="h-5 w-5 mr-2 text-blue-500" />
-                    <span>
-                      {trip.start_date} ~ {trip.end_date}
-                    </span>
-                  </div>
-                  <div className="flex items-center text-gray-600 text-base">
-                    <MapPin className="h-5 w-5 mr-2 text-blue-500" />
-                    <span>{trip.destination}</span>
-                  </div>
-                  <div className="flex gap-2 mt-3">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleEdit(trip.id);
-                      }}
-                    >
-                      <Edit2 className="h-4 w-4 mr-1" /> 편집
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleShare(trip.id);
-                      }}
-                    >
-                      <Share2 className="h-4 w-4 mr-1" /> 공유
-                    </Button>
-                    <Button
-                      variant="destructive"
-                      size="sm"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleDelete(trip.id);
-                      }}
-                    >
-                      <Trash2 className="h-4 w-4 mr-1" /> 삭제
-                    </Button>
-                  </div>
+                  {editingId === trip.id ? (
+                    <>
+                      <input
+                        className="border rounded px-2 py-1 w-full mb-2"
+                        value={editForm.title || ''}
+                        onChange={(e) => setEditForm((f) => ({ ...f, title: e.target.value }))}
+                        placeholder="제목"
+                      />
+                      <div className="flex items-center gap-2 mb-2">
+                        <input
+                          type="date"
+                          className="border rounded px-2 py-1"
+                          value={editForm.start_date || ''}
+                          onChange={(e) =>
+                            setEditForm((f) => ({ ...f, start_date: e.target.value }))
+                          }
+                        />
+                        ~
+                        <input
+                          type="date"
+                          className="border rounded px-2 py-1"
+                          value={editForm.end_date || ''}
+                          onChange={(e) => setEditForm((f) => ({ ...f, end_date: e.target.value }))}
+                        />
+                      </div>
+                      <input
+                        className="border rounded px-2 py-1 w-full mb-2"
+                        value={editForm.destination || ''}
+                        onChange={(e) =>
+                          setEditForm((f) => ({ ...f, destination: e.target.value }))
+                        }
+                        placeholder="목적지"
+                      />
+                      <div className="flex gap-2 mt-3">
+                        <Button
+                          size="sm"
+                          className="bg-blue-600 hover:bg-blue-700 text-white"
+                          onClick={async () => {
+                            const { error } = await supabase
+                              .from('travel_schedule')
+                              .update({
+                                title: editForm.title,
+                                start_date: editForm.start_date,
+                                end_date: editForm.end_date,
+                                destination: editForm.destination,
+                              })
+                              .eq('id', trip.id);
+                            if (!error) {
+                              setTrips((trips) =>
+                                trips.map((t) => (t.id === trip.id ? { ...t, ...editForm } : t))
+                              );
+                              setEditingId(null);
+                            } else {
+                              alert('저장 실패: ' + error.message);
+                            }
+                          }}
+                        >
+                          저장
+                        </Button>
+                        <Button size="sm" variant="outline" onClick={() => setEditingId(null)}>
+                          취소
+                        </Button>
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <h2 className="text-2xl font-semibold text-gray-900 mb-2">{trip.title}</h2>
+                      <div className="flex items-center text-gray-600 text-base mb-1">
+                        <CalendarIcon className="h-5 w-5 mr-2 text-blue-500" />
+                        <span>
+                          {trip.start_date} ~ {trip.end_date}
+                        </span>
+                      </div>
+                      <div className="flex items-center text-gray-600 text-base">
+                        <MapPin className="h-5 w-5 mr-2 text-blue-500" />
+                        <span>{trip.destination}</span>
+                      </div>
+                      <div className="flex gap-2 mt-3">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setEditingId(trip.id);
+                            setEditForm(trip);
+                          }}
+                        >
+                          <Edit2 className="h-4 w-4 mr-1" /> 편집
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleDelete(trip.id);
+                          }}
+                        >
+                          <Trash2 className="h-4 w-4 mr-1" /> 삭제
+                        </Button>
+                      </div>
+                    </>
+                  )}
                 </div>
-                <TripImage destination={trip.destination} />
+                {editingId === trip.id ? null : <TripImage destination={trip.destination} />}
               </Card>
             ))}
           </div>
