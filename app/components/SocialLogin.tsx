@@ -5,7 +5,7 @@ import { Github } from 'lucide-react';
 import { useAuth } from '@/app/providers/AuthProvider';
 
 export default function SocialLogin() {
-  const { signInWithGithub, signInWithGoogle, isLoading } = useAuth();
+  const { signInWithGithub, signInWithGoogle, signInWithKakao, isLoading } = useAuth();
 
   const handleGithubLogin = async () => {
     try {
@@ -20,6 +20,14 @@ export default function SocialLogin() {
       await signInWithGoogle();
     } catch (error) {
       console.error('Google 로그인 오류:', error);
+    }
+  };
+
+  const handleKakaoLogin = async () => {
+    try {
+      await signInWithKakao();
+    } catch (error) {
+      console.error('Kakao 로그인 오류:', error);
     }
   };
 
@@ -76,6 +84,18 @@ export default function SocialLogin() {
             />
           </svg>
           {isLoading ? '처리 중...' : 'Google로 계속하기'}
+        </Button>
+
+        {/* Kakao Login Button */}
+        <Button
+          type="button"
+          variant="outline"
+          className="w-full bg-[#FEE500] hover:bg-[#ffe066] text-black border border-[#FEE500] hover:border-[#ffe066] flex items-center justify-center"
+          onClick={handleKakaoLogin}
+          disabled={isLoading}
+        >
+          <img src="/pngegg.png" alt="카카오" className="h-5 w-5 mr-2" />
+          {isLoading ? '처리 중...' : '카카오로 계속하기'}
         </Button>
       </div>
     </div>
