@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { usePathname } from 'next/navigation';
 import { Menu, X, Home, MessageCircle, Star, Calendar, MapPin } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -31,7 +32,8 @@ export default function Navigation() {
               <div className="bg-blue-600 rounded-lg p-2">
                 <Calendar className="h-6 w-6 text-white" />
               </div>
-              <span className="text-xl font-bold text-gray-900">TravelPlan</span>
+              <Image src="/logo.png"  alt="HOOLJJEOK Logo" width={90} height={70} />
+              {/* <span className="text-xl font-bold text-gray-900">HOOLJJEOK</span> */}
             </Link>
 
             {/* Desktop Navigation Skeleton */}
@@ -69,7 +71,9 @@ export default function Navigation() {
             <div className="bg-blue-600 rounded-lg p-2">
               <Calendar className="h-6 w-6 text-white" />
             </div>
-            <span className="text-xl font-bold text-gray-900">TravelPlan</span>
+            <Image src="/logo.png"  alt="HOOLJJEOK Logo" width={110} height={90} />
+
+            {/* <span className="text-xl font-bold text-gray-900">HOOLJJEOK</span> */}
           </Link>
 
           {/* Desktop Navigation */}

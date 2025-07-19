@@ -9,7 +9,7 @@ import FloatingChat from '@/components/chat/FloatingChat';
 const inter = Inter({ subsets: ['latin'] });
 
 export const metadata: Metadata = {
-  title: '여행 계획 플랫폼 - TravelPlan',
+  title: '여행 계획 플랫폼 - HOOLJJEOK',
   description: 'AI가 도와주는 맞춤형 여행 계획 서비스',
   generator: 'v0.dev',
 };
