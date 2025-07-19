@@ -1,13 +1,13 @@
 import type React from 'react';
-import { Calendar, Users, Star } from 'lucide-react';
+import { Calendar, Users, Star, Search } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/lib/supabase';
 import Link from 'next/link';
-import SearchForm from '@/components/destination/SearchForm'; // 클라이언트 컴포넌트
-import DestinationCard from '@/components/home/DestinationCard'; // 서버 컴포넌트
-import { Destination } from '@/utils/destination/types'; // 타입 정의 파일 임포트
+import SearchForm from '@/components/destination/SearchForm'; 
+import DestinationCard from '@/components/home/DestinationCard'; 
+import { Destination } from '@/utils/destination/types'; 
 
-// 메타데이터 설정 (SEO 최적화)
+
 export const metadata = {
   title: '완벽한 여행을 계획하세요 - 여행 플래너',
   description: 'AI가 도와주는 맞춤형 여행 계획으로 특별한 추억을 만들어보세요',
@@ -23,10 +23,7 @@ async function getDestinations(): Promise<Destination[]> {
 
   try {
     const { data, error } = await supabase
-      .from('travels')
-      .select('*')
-      .order('view_count', { ascending: false })
-      .limit(6); // 초기 로딩에 필요한 만큼만 가져옴
+      .rpc('get_popular_travels');
 
     // console.timeEnd('SSR Data Fetch');
 
@@ -72,7 +69,7 @@ export default async function HomePage() {
               <Button variant="outline" className="rounded-full px-6 py-3 bg-transparent">
                 <Users className="h-4 w-4 mr-2" />
                 그룹 여행
-              </Button>개
+              </Button>
             </Link>
             <Link href="/destinations?popular=true" passHref>
               <Button variant="outline" className="rounded-full px-6 py-3 bg-transparent">
@@ -89,7 +86,7 @@ export default async function HomePage() {
         <div className="max-w-6xl mx-auto">
           <h2 className="text-3xl font-bold text-center mb-12 text-gray-900">인기 여행지</h2>
           {destinations.length > 0 ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
               {destinations.map((destination) => (
                 <DestinationCard key={destination.id} destination={destination} />
               ))}
