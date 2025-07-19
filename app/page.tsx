@@ -5,11 +5,11 @@ import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { supabase } from '@/lib/supabase';
 import Link from 'next/link';
-import SearchForm from '@/components/SearchForm'; // 클라이언트 컴포넌트
+import SearchForm from '@/components/destination/SearchForm'; // 클라이언트 컴포넌트
 
 // 서버에서 데이터 가져오기
 async function getDestinations() {
-  console.time('SSR Data Fetch'); // 성능 측정
+  //console.time('SSR Data Fetch'); // 성능 측정
 
   try {
     const { data, error } = await supabase
@@ -18,7 +18,7 @@ async function getDestinations() {
       .order('view_count', { ascending: false })
       .limit(6);
 
-    console.timeEnd('SSR Data Fetch');
+    //console.timeEnd('SSR Data Fetch');
 
     if (error) {
       console.error('데이터 가져오기 오류:', error);
