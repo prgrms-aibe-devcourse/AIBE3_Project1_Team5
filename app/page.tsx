@@ -1,34 +1,43 @@
 import type React from 'react';
-import { Search, MapPin, Calendar, Users, Star } from 'lucide-react';
+import { Calendar, Users, Star } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { supabase } from '@/lib/supabase';
 import Link from 'next/link';
 import SearchForm from '@/components/destination/SearchForm'; // 클라이언트 컴포넌트
+import DestinationCard from '@/components/home/DestinationCard'; // 서버 컴포넌트
+import { Destination } from '@/utils/destination/types'; // 타입 정의 파일 임포트
 
-// 서버에서 데이터 가져오기
-async function getDestinations() {
-  //console.time('SSR Data Fetch'); // 성능 측정
+// 메타데이터 설정 (SEO 최적화)
+export const metadata = {
+  title: '완벽한 여행을 계획하세요 - 여행 플래너',
+  description: 'AI가 도와주는 맞춤형 여행 계획으로 특별한 추억을 만들어보세요',
+  keywords: '여행, 여행계획, 여행지, 맞춤여행, AI여행',
+};
+
+// 캐싱 설정 (선택사항): 5분마다 데이터 재검증
+export const revalidate = 300; 
+
+// 서버에서 데이터 가져오기 (SSR)
+async function getDestinations(): Promise<Destination[]> {
+  // console.time('SSR Data Fetch'); // 성능 측정 (서버 로그에서 확인 가능)
 
   try {
     const { data, error } = await supabase
       .from('travels')
       .select('*')
       .order('view_count', { ascending: false })
-      .limit(6);
+      .limit(6); // 초기 로딩에 필요한 만큼만 가져옴
 
-    //console.timeEnd('SSR Data Fetch');
+    // console.timeEnd('SSR Data Fetch');
 
     if (error) {
       console.error('데이터 가져오기 오류:', error);
       return [];
     }
-
-    //console.log(`${data?.length || 0}개의 여행지 데이터 로딩 완료`);
+    // console.log(`${data?.length || 0}개의 여행지 데이터 로딩 완료 (SSR)`);
     return data || [];
   } catch (error) {
-    console.error('SSR 에러:', error);
+    console.error('SSR 데이터 로드 중 예외 발생:', error);
     return [];
   }
 }
@@ -48,24 +57,24 @@ export default async function HomePage() {
             AI가 도와주는 맞춤형 여행 계획으로 특별한 추억을 만들어보세요
           </p>
 
-          {/* Search Form - 클라이언트 컴포넌트로 분리 */}
+          {/* Search Form - 클라이언트 컴포넌트로 분리하여 동적인 상호작용 처리 */}
           <SearchForm />
 
           {/* Quick Actions */}
           <div className="flex flex-wrap justify-center gap-4 mb-16">
-            <Link href="/destinations">
+            <Link href="/planner" passHref>
               <Button variant="outline" className="rounded-full px-6 py-3 bg-transparent">
                 <Calendar className="h-4 w-4 mr-2" />
                 일정 만들기
               </Button>
             </Link>
-            <Link href="/destinations">
+            <Link href="/group-travel" passHref>
               <Button variant="outline" className="rounded-full px-6 py-3 bg-transparent">
                 <Users className="h-4 w-4 mr-2" />
                 그룹 여행
-              </Button>
+              </Button>개
             </Link>
-            <Link href="/destinations?popular=true">
+            <Link href="/destinations?popular=true" passHref>
               <Button variant="outline" className="rounded-full px-6 py-3 bg-transparent">
                 <Star className="h-4 w-4 mr-2" />
                 인기 여행지
@@ -79,11 +88,15 @@ export default async function HomePage() {
       <section className="py-16 px-4">
         <div className="max-w-6xl mx-auto">
           <h2 className="text-3xl font-bold text-center mb-12 text-gray-900">인기 여행지</h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {destinations.map((destination) => (
-              <DestinationCard key={destination.id} destination={destination} />
-            ))}
-          </div>
+          {destinations.length > 0 ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {destinations.map((destination) => (
+                <DestinationCard key={destination.id} destination={destination} />
+              ))}
+            </div>
+          ) : (
+            <p className="text-center text-gray-500">인기 여행지 데이터를 불러오지 못했습니다.</p>
+          )}
         </div>
       </section>
 
@@ -121,41 +134,3 @@ export default async function HomePage() {
     </div>
   );
 }
-
-// 여행지 카드 컴포넌트 (서버 컴포넌트)
-function DestinationCard({ destination }: { destination: any }) {
-  return (
-    <Card className="overflow-hidden hover:shadow-lg transition-shadow">
-      <Link href={`/destinations/${destination.id}`}>
-        <div className="relative cursor-pointer">
-          <img
-            src={destination.image_url || '/placeholder.svg'}
-            alt={destination.name_kr}
-            className="w-full h-48 object-cover"
-          />
-          <div className="absolute top-4 right-4 bg-white rounded-full px-2 py-1 flex items-center">
-            <Star className="h-4 w-4 text-yellow-400 fill-current" />
-            <span className="text-sm font-medium ml-1">{destination.rating_num ?? 0}</span>
-          </div>
-        </div>
-        <CardHeader>
-          <CardTitle className="text-lg">{destination.name_kr}</CardTitle>
-          <CardDescription className="text-gray-500">{destination.country}</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <p className="text-sm text-gray-600 line-clamp-2">{destination.description}</p>
-        </CardContent>
-      </Link>
-    </Card>
-  );
-}
-
-// 메타데이터 설정 (SEO 최적화)
-export const metadata = {
-  title: '완벽한 여행을 계획하세요 - 여행 플래너',
-  description: 'AI가 도와주는 맞춤형 여행 계획으로 특별한 추억을 만들어보세요',
-  keywords: '여행, 여행계획, 여행지, 맞춤여행, AI여행',
-};
-
-// 캐싱 설정 (선택사항)
-export const revalidate = 300; // 5분마다 재검증
