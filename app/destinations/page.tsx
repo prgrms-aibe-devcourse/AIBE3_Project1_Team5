@@ -50,7 +50,7 @@ interface Destination {
   region: string;
   description?: string;
   image_url?: string;
-  rating_num?: number;
+  avg_score?: number;
   view_count?: number;
   cost_flight?: number;
   cost_hotel_per_night?: number;
@@ -114,7 +114,7 @@ const useDestinations = () => {
           region,
           description,
           image_url,
-          rating_num,
+          avg_score,
           view_count,
           cost_flight,
           cost_hotel_per_night,
@@ -484,7 +484,7 @@ const DestinationCard = ({
 
         <div className="absolute bottom-4 left-4 bg-white/90 rounded-full px-2 py-1 flex items-center">
           <Star className="h-4 w-4 text-yellow-400 fill-current mr-1" />
-          <span className="text-sm font-medium">{destination.rating_num || 0}</span>
+          <span className="text-sm font-medium">{destination.avg_score || 0}</span>
           <span className="text-xs text-gray-500 ml-1">({destination.view_count || 0})</span>
         </div>
       </div>
@@ -557,7 +557,7 @@ const DestinationListItem = ({
             <div className="flex items-center space-x-4">
               <div className="flex items-center">
                 <Star className="h-4 w-4 text-yellow-400 fill-current mr-1" />
-                <span className="font-medium">{destination.rating_num || 0}</span>
+                <span className="font-medium">{destination.avg_score || 0}</span>
                 <span className="text-gray-500 ml-1">({destination.view_count || 0})</span>
               </div>
               <Button
