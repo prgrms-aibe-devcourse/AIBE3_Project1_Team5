@@ -7,11 +7,6 @@ export interface Destination {
   description?: string;
   image_url?: string;
   cost_flight?: number;
-  cost_hotel_per_night?: number;
-  cost_meal_per_day?: number;
-  cost_sightseeing_per_day?: number;
-  cost_etc_per_day?: number; 
-  detail_description?: string;
   tips?: string;
   best_time?: string;
   avg_score?: number; // 리뷰 평균 점수 (0-5)
