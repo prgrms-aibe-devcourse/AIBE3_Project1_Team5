@@ -16,10 +16,6 @@ export interface Destination {
   best_time?: string;
   avg_score?: number; // 리뷰 평균 점수 (0-5)
   review_count?: number;  // 리뷰 개수
-  // weather_spring?: string;
-  // weather_summer?: string;
-  // weather_autumn?: string;
-  // weather_winter?: string;
 }
 
 export interface FilterState {
