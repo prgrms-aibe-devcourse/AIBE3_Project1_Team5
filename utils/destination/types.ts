@@ -11,6 +11,7 @@ export interface Destination {
   best_time?: string;
   avg_score?: number; // 리뷰 평균 점수 (0-5)
   review_count?: number;  // 리뷰 개수
+  is_popular?: boolean; 
 }
 
 export interface FilterState {
