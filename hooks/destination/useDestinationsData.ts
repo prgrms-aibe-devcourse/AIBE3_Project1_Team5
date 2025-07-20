@@ -13,15 +13,7 @@ export const useDestinationsData = () => {
 
     try {
       const { data, error: supabaseError } = await supabase
-        .from('travels')
-        .select(
-          `
-          id, name_kr, name_en, country, region, description, image_url, avg_score, review_count,
-          cost_flight, cost_hotel_per_night, cost_meal_per_day, cost_sightseeing_per_day,
-          tips, best_time, weather_spring, weather_summer, weather_autumn, weather_winter
-        `
-        )
-        .order('review_count', { ascending: false });
+        .from('travels_with_review_summary').select('*');
 
       if (supabaseError) {
         console.error('Supabase 에러:', supabaseError);
