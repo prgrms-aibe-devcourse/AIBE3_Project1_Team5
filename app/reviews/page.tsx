@@ -31,6 +31,14 @@ import ReviewCard from '@/components/reviews/ReviewCard';
 import ReviewList from '@/components/reviews/ReviewList';
 import ReviewForm from '@/components/reviews/ReviewForm';
 import ReviewSearchBar from '@/components/reviews/ReviewSearchBar';
+import {
+  Pagination,
+  PaginationContent,
+  PaginationItem,
+  PaginationLink,
+  PaginationPrevious,
+  PaginationNext,
+} from '@/components/ui/pagination';
 
 type Review = {
   id: string;
@@ -292,10 +300,7 @@ export default function ReviewsPage() {
       alert('후기 수정이 완료되었습니다.');
 
       // 후기 목록 새로고침
-      const newData = await fetchReviews();
-      if (newData) {
-        setReviews(newData);
-      }
+      await fetchReviews(currentPage);
 
       // 수정 모드 종료
       setEditingReviewId(null);
@@ -311,30 +316,50 @@ export default function ReviewsPage() {
     }
   };
 
-  // 후기 데이터 가져오기 함수
-  const fetchReviews = async () => {
-    const { data, error } = await supabase.from('review').select(`
-      id,
-      content,
-      score,
-      created_at,
-      user_id,
-      travels: travel_id(
-        name_kr
-      ),
-      review_img(
-        img_url
-      )
-    `);
+  const REVIEWS_PER_PAGE = 10;
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalCount, setTotalCount] = useState(0);
 
+  const fetchReviews = async (page: number) => {
+    setIsLoading(true);
+    const from = (page - 1) * REVIEWS_PER_PAGE;
+    const to = from + REVIEWS_PER_PAGE - 1;
+    const { data, error, count } = await supabase
+      .from('review')
+      .select(
+        `
+        id,
+        content,
+        score,
+        created_at,
+        user_id,
+        travels:travel_id(
+          name_kr
+        ),
+        review_img(
+          img_url
+        )
+      `,
+        { count: 'exact' }
+      )
+      .range(from, to)
+      .order('created_at', { ascending: false });
     if (error) {
       alert('리뷰 데이터를 불러오지 못했습니다.');
-      return null;
+      setIsLoading(false);
+      return;
     }
-    console.log(data);
-
-    return (data as Review[]) || [];
+    setReviews(data || []);
+    setFilteredReviews(data || []);
+    setTotalCount(count || 0);
+    setIsLoading(false);
   };
+
+  useEffect(() => {
+    fetchReviews(currentPage);
+  }, [currentPage]);
+
+  const totalPages = Math.ceil(totalCount / REVIEWS_PER_PAGE);
 
   // 후기 삭제 함수
   const handleDeleteReview = async (reviewId: string) => {
@@ -388,12 +413,7 @@ export default function ReviewsPage() {
 
       alert('후기가 성공적으로 삭제되었습니다.');
       // 후기 목록 새로고침
-      const newData = await fetchReviews();
-      if (newData) {
-        setReviews(newData);
-      } else {
-        alert('후기 목록을 새로고침하는데 실패했습니다.');
-      }
+      await fetchReviews(currentPage);
     } catch (error) {
       alert('후기 삭제 중 오류가 발생했습니다.');
       console.error('Delete error:', error);
@@ -501,10 +521,7 @@ export default function ReviewsPage() {
 
       // 후기 목록 새로고침
       try {
-        const newData = await fetchReviews();
-        if (newData) {
-          setReviews(newData);
-        }
+        await fetchReviews(currentPage);
       } catch (error) {
         console.error('후기 목록 새로고침 실패:', error);
         // 새로고침 실패해도 폼은 초기화
@@ -632,6 +649,33 @@ export default function ReviewsPage() {
           onEditSubmit={handleEditReview}
           onEditCancel={() => setEditingReviewId(null)}
         />
+
+        {totalPages > 1 && (
+          <div className="mt-8 flex justify-center">
+            <Pagination>
+              <PaginationContent>
+                <PaginationItem>
+                  <PaginationPrevious onClick={() => setCurrentPage((p) => Math.max(1, p - 1))} />
+                </PaginationItem>
+                {[...Array(totalPages)].map((_, idx) => (
+                  <PaginationItem key={idx}>
+                    <PaginationLink
+                      isActive={currentPage === idx + 1}
+                      onClick={() => setCurrentPage(idx + 1)}
+                    >
+                      {idx + 1}
+                    </PaginationLink>
+                  </PaginationItem>
+                ))}
+                <PaginationItem>
+                  <PaginationNext
+                    onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                  />
+                </PaginationItem>
+              </PaginationContent>
+            </Pagination>
+          </div>
+        )}
       </div>
     </div>
   );
