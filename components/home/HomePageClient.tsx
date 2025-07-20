@@ -148,6 +148,21 @@ export default function HomePageClient({ destinations }: HomePageClientProps) {
                 로그인 또는 회원가입
               </Link>
             </div>
+            {/* Popular Destinations - 서버에서 렌더링된 데이터 */}
+          <section className="py-16 px-4">
+            <div className="max-w-6xl mx-auto">
+              <h2 className="text-3xl font-bold text-center mb-12 text-gray-900">인기 여행지</h2>
+              {destinations.length > 0 ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                  {destinations.map((destination) => (
+                    <DestinationCard key={destination.id} destination={destination} />
+                  ))}
+                </div>
+              ) : (
+                <p className="text-center text-gray-500">인기 여행지 데이터를 불러오지 못했습니다.</p>
+              )}
+            </div>
+          </section>
             {/* Features Section (로그인 전에도 보여줄 수 있는 공통 섹션) */}
             <div className="py-16 px-4 bg-white mt-16 rounded-lg shadow-md">
               <h2 className="text-3xl font-bold text-center mb-12 text-gray-900">

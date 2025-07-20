@@ -1,7 +1,7 @@
 import type React from 'react';
 import { supabase } from '@/lib/supabase';
 import { Destination } from '@/utils/destination/types';
-import HomePageClient from '@/components/destination/HomePageClient'; // 새로 생성한 클라이언트 컴포넌트 임포트
+import HomePageClient from '@/components/home/HomePageClient'; // 새로 생성한 클라이언트 컴포넌트 임포트
 
 export const metadata = {
   title: '완벽한 여행을 계획하세요 - 여행 플래너',
