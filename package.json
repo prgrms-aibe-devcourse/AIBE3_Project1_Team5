@@ -12,7 +12,10 @@
     "test-run": "npx tsx scripts/run-tests.ts test",
     "test-continuous": "npx tsx scripts/run-tests.ts continuous",
     "test-analyze": "npx tsx scripts/run-tests.ts analyze",
-    "test-all": "npx tsx scripts/run-tests.ts all"
+    "test-all": "npx tsx scripts/run-tests.ts all",
+    "analyze-chats": "npx tsx scripts/analyze-real-chats.ts",
+    "check-params": "npx tsx scripts/check-session-params.ts",
+    "check-messages": "npx tsx scripts/check-chat-messages.ts"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.9.1",

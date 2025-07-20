@@ -356,7 +356,7 @@ function generateHTMLTemplate(plan: TravelPlan, includeImages: boolean): string 
                   <td class="time-col">${item.time}</td>
                   <td class="activity-col">
                     <span class="status ${
-                      item.status === '✅' ? 'status-confirmed' :
+                      item.status === '확정' ? 'status-confirmed' :
                       item.status === '🔜' ? 'status-pending' : 'status-cancelled'
                     }">${item.status}</span>
                     <strong>${item.activity}</strong><br>

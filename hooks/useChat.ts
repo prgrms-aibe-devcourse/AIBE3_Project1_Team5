@@ -5,6 +5,193 @@ import { ChatSessionService } from '@/lib/chatSessionService';
 import { useTravelPlan } from './useTravelPlan';
 import { travelPlanService } from '@/lib/travelPlanService';
 
+// 메시지에 여행 계획 정보를 복원하는 함수 (타임아웃 및 에러 처리 개선)
+async function enrichMessagesWithTravelPlans(messages: Message[], sessionId: string, userId: string) {
+  console.log('🚀 여행 계획 복원 시작:', { sessionId, messageCount: messages.length });
+  
+  try {
+    // 타임아웃 설정 (10초)
+    const timeoutPromise = new Promise<never>((_, reject) => 
+      setTimeout(() => reject(new Error('여행 계획 복원 타임아웃')), 10000)
+    );
+    
+    const enrichmentPromise = async () => {
+      // 세션의 모든 여행 계획 조회
+      console.log('📊 사용자 여행 계획 조회 중...');
+      const userPlans = await travelPlanService.getUserTravelPlans(userId);
+      const sessionPlans = userPlans.filter(plan => plan.created_from_session_id === sessionId);
+      
+      console.log('🔍 세션의 여행 계획들:', sessionPlans.length);
+      
+      if (sessionPlans.length === 0) {
+        console.log('✅ 복원할 여행 계획 없음');
+        return;
+      }
+      
+      // 각 여행 계획에 대해 원본 파라미터 조회 (병렬 처리)
+      console.log('🔄 여행 계획 데이터 변환 중...');
+      const enrichedPlans = await Promise.all(
+        sessionPlans.map(async (dbPlan, index) => {
+          try {
+            // 세션 파라미터 조회에 개별 타임아웃 적용
+            const paramTimeoutPromise = new Promise<any>((_, reject) => 
+              setTimeout(() => reject(new Error('파라미터 조회 타임아웃')), 3000)
+            );
+            
+            let sessionParams = null;
+            try {
+              sessionParams = await Promise.race([
+                travelPlanService.getSessionParameters(sessionId),
+                paramTimeoutPromise
+              ]);
+            } catch (paramError) {
+              console.warn(`⚠️ 여행 계획 ${index + 1} 파라미터 조회 실패:`, paramError instanceof Error ? paramError.message : String(paramError));
+              // 파라미터 조회 실패해도 기본 계획은 복원
+            }
+            
+            const travelPlan = {
+              title: dbPlan.title,
+              destination: dbPlan.destination,
+              duration: dbPlan.duration,
+              startDate: dbPlan.start_date,
+              endDate: dbPlan.end_date,
+              schedule: dbPlan.schedule || [],
+              tips: dbPlan.ai_metadata?.tips,
+              requirements: dbPlan.ai_metadata?.requirements,
+              currency: dbPlan.ai_metadata?.currency || 'KRW',
+              totalBudget: dbPlan.ai_metadata?.totalBudget,
+              overview: dbPlan.ai_metadata?.overview,
+              mealSummary: dbPlan.ai_metadata?.mealSummary,
+              costBreakdown: dbPlan.ai_metadata?.costBreakdown,
+              emergencyInfo: dbPlan.ai_metadata?.emergencyInfo,
+              dbPlanId: dbPlan.id, // DB 계획 ID 추가 (수정 모달용)
+            };
+
+            // 원본 파라미터 추가 (있는 경우에만)
+            if (sessionParams) {
+              travelPlan.originalParams = {
+                title: sessionParams.title,
+                destination: sessionParams.destination,
+                startDate: sessionParams.start_date,
+                endDate: sessionParams.end_date,
+                duration: sessionParams.duration,
+                peopleCount: sessionParams.people_count,
+                budget: sessionParams.budget,
+                travelStyle: sessionParams.travel_style,
+                transportation: sessionParams.transportation,
+                accommodation: sessionParams.accommodation
+              };
+            }
+
+            return {
+              dbPlan,
+              travelPlan,
+              createdAt: new Date(dbPlan.created_at)
+            };
+          } catch (planError) {
+            console.error(`❌ 여행 계획 ${index + 1} 변환 실패:`, planError);
+            // 실패한 계획은 제외하고 계속 진행
+            return null;
+          }
+        })
+      );
+      
+      // null 값 제거 (실패한 계획들)
+      const validPlans = enrichedPlans.filter(plan => plan !== null);
+      console.log(`✅ ${validPlans.length}/${sessionPlans.length} 여행 계획 복원 완료`);
+      
+      return validPlans;
+    };
+    
+    // 타임아웃과 함께 실행
+    const enrichedPlans = await Promise.race([enrichmentPromise(), timeoutPromise]) || [];
+    
+    if (!Array.isArray(enrichedPlans) || enrichedPlans.length === 0) {
+      console.log('ℹ️ 복원할 여행 계획이 없음');
+      return;
+    }
+    
+    // 여행 계획 생성 키워드를 포함한 assistant 메시지들 찾기
+    const planKeywords = [
+      '여행 계획이 완성되었습니다',
+      '여행 일정을 생성했습니다',
+      '계획이 준비되었습니다',
+      '일정표를 만들어드렸습니다',
+      '여행 계획을 확인해보세요',
+      '이 완성되었습니다',
+      '플랜이 완성되었습니다',
+      '여행을 준비했어요',
+      '멋진 여행을 준비했어요',
+      '일정을 확인하고',
+      '수정하거나 다운로드해주세요',
+      '아래 일정을 확인하고',
+      '필요시 수정하거나'
+    ];
+    
+    // 여행 계획이 포함된 메시지들을 복원 (성능 최적화)
+    console.log('🔍 메시지 매칭 시작...');
+    let planIndex = 0;
+    let processedCount = 0;
+    
+    messages.forEach((msg, index) => {
+      if (msg.role === 'assistant') {
+        // 여행 계획 생성 메시지인지 확인
+        const hasPlanKeywords = planKeywords.some(keyword => msg.content.includes(keyword));
+        
+        if (hasPlanKeywords) {
+          processedCount++;
+          console.log(`🎯 키워드 매칭 메시지 발견 (${processedCount}): ${msg.id}`);
+          
+          // 메시지 생성 시간과 가장 가까운 여행 계획 찾기
+          const msgTime = msg.timestamp.getTime();
+          let closestPlan = null;
+          let minTimeDiff = Infinity;
+          
+          enrichedPlans.forEach(({ travelPlan, createdAt }) => {
+            const timeDiff = Math.abs(createdAt.getTime() - msgTime);
+            if (timeDiff < minTimeDiff && timeDiff < 300000) { // 5분 이내로 확장
+              minTimeDiff = timeDiff;
+              closestPlan = travelPlan;
+            }
+          });
+          
+          // 시간 기반으로 찾지 못했다면 순서대로 계획 할당
+          if (!closestPlan && enrichedPlans.length > planIndex) {
+            closestPlan = enrichedPlans[planIndex].travelPlan;
+            planIndex++;
+            console.log('🔄 시간 매칭 실패, 순서 기반으로 계획 할당');
+          }
+          
+          // 그래도 없다면 가장 최근 계획 사용
+          if (!closestPlan && enrichedPlans.length > 0) {
+            closestPlan = enrichedPlans[enrichedPlans.length - 1].travelPlan;
+            console.log('🔄 순서 매칭도 실패, 최근 계획 사용');
+          }
+          
+          if (closestPlan) {
+            msg.travelPlan = closestPlan;
+            console.log('✅ 메시지에 여행 계획 복원됨:', msg.id, '- 제목:', closestPlan.title);
+          } else {
+            console.warn('⚠️ 여행 계획 매칭 실패:', msg.id);
+          }
+        }
+      }
+    });
+    
+    console.log(`🎉 여행 계획 복원 완료: ${processedCount}개 메시지 처리됨`);
+    
+  } catch (error) {
+    console.error('❌ 여행 계획 복원 중 오류:', error);
+    
+    // 에러 발생해도 채팅은 정상 작동하도록 graceful fallback
+    if (error.message?.includes('타임아웃')) {
+      console.log('⏰ 타임아웃으로 인한 복원 실패 - 기본 메시지만 표시');
+    } else {
+      console.log('💥 예상치 못한 오류로 인한 복원 실패 - 기본 메시지만 표시');
+    }
+  }
+}
+
 interface Message {
   id: string;
   session_id?: string;
@@ -19,15 +206,40 @@ interface Message {
   isWelcomeMessage?: boolean; // 웰컴 메시지 여부 (중복 감지 제외용)
 }
 
-// 키워드 기반 의도 분석
+// 키워드 기반 의도 분석 (문맥 고려 추가)
 function analyzeByKeywords(content: string, existingParams: any): {intent: string, confidence: number} {
-  const lowerContent = content.toLowerCase();
+  const lowerContent = content.toLowerCase().trim();
+  
+  // 기간 패턴 감지 (더 정확한 패턴 매칭)
+  const durationPatterns = [
+    /^\s*\d+\s*일\s*$/,           // "2일", "3일"
+    /^\s*\d+박\s*\d+일\s*$/,     // "1박2일", "2박3일"
+    /^\s*\d+\s*박\s*$/,          // "2박"
+    /^\s*\d+\s*주\s*$/,          // "1주", "2주"
+    /^\s*\d+\s*개월\s*$/         // "1개월"
+  ];
+  
+  const isDurationInput = durationPatterns.some(pattern => pattern.test(lowerContent));
+  
+  // 진행 중인 여행 파라미터 수집 상태인지 확인
+  const isCollectingParams = existingParams && existingParams.collection_status === 'incomplete';
+  
+  // 기간 입력이면서 파라미터 수집 중인 경우 -> 여행 파라미터 제공
+  if (isDurationInput && isCollectingParams) {
+    return {intent: 'travel_parameter', confidence: 0.95};
+  }
+  
+  // 기간 입력이면서 기존 파라미터가 있는 경우도 -> 여행 파라미터로 처리
+  if (isDurationInput && existingParams) {
+    return {intent: 'travel_parameter', confidence: 0.9};
+  }
   
   // 1. 진행중인 계획 확인 키워드 (높은 신뢰도)
   const statusInquiryKeywords = [
     '작업중이던', '작업중인', '진행중인', '진행중이던', '진행하던',
-    '이전 기록', '기록이 있', '계획이 있', '여행이 있', '일정이 있',
-    '계속하던', '하던', '중이던', '기존', '예전', '전에', '이미'
+    '이전 기록', '기록이 있나', '계획이 있나', '여행이 있나',
+    '계속하던', '하던 계획', '중이던', '기존', '예전', '전에', '이미',
+    '진행중인 계획', '저장된 계획', '만들던 계획'
   ];
   
   // 2. 새로운 여행 시작 키워드
@@ -44,6 +256,23 @@ function analyzeByKeywords(content: string, existingParams: any): {intent: strin
   // 4. 여행 취소 키워드
   const cancelKeywords = [
     '그만', '중단', '취소', '멈춰', '안할래', '안갈래', '안간다'
+  ];
+  
+  // 5. 여행 파라미터 관련 키워드 (장소, 인원, 예산 등)
+  const parameterKeywords = [
+    // 장소
+    '서울', '부산', '제주', '일본', '도쿄', '오사카', '파리', '런던', '뉴욕', '방콕', '베트남', '중국', '태국', '싱가포르',
+    // 인원
+    '명', '사람', '인원', '가족', '친구', '연인', '혼자', '둘이서', '셋이서', '넷이서',
+    // 예산
+    '만원', '원', '달러', '예산', '돈', '비용', '백만원', '천만원',
+    // 숙소
+    '호텔', '펜션', '게스트하우스', '숙박', '리조트', '에어비앤비', '모텔', '캠핑',
+    // 교통수단
+    '렌터카', '기차', '비행기', '버스', '교통', 'KTX', '지하철', '택시', '자동차',
+    // 여행 스타일 (중요 추가)
+    '힐링', '휴양', '액티비티', '문화', '맛집', '카페', '쇼핑', '관광', '자연', '도시', '로맨틱', '가족', '모험', '예술', '역사',
+    '격투', '음악', '스포츠', '웰니스', '럭셔리', '백패킹', '드라이브', '사진', '요리', '축제'
   ];
   
   // 키워드 매칭 및 신뢰도 계산
@@ -63,6 +292,11 @@ function analyzeByKeywords(content: string, existingParams: any): {intent: strin
     if (lowerContent.includes(keyword)) {
       return {intent: 'travel_resume', confidence: 0.85};
     }
+  }
+  
+  // 파라미터 수집 중이면서 관련 키워드가 있는 경우
+  if (isCollectingParams && parameterKeywords.some(keyword => lowerContent.includes(keyword))) {
+    return {intent: 'travel_parameter', confidence: 0.85};
   }
   
   for (const keyword of startKeywords) {
@@ -85,7 +319,7 @@ function analyzeByKeywords(content: string, existingParams: any): {intent: strin
 // GPT 기반 의도 분석 (기존 함수)
 async function analyzeByGPT(content: string, existingParams: any, messages: Message[]): Promise<{intent: string, confidence: number}> {
   try {
-    const recentMessages = messages.slice(-3).map(msg => msg.content);
+    const recentMessages = messages.slice(-10).map(msg => `${msg.role}: ${msg.content}`);
     const hasExistingParams = existingParams && existingParams.collection_status === 'incomplete';
     
     const response = await fetch('/api/chat/travel', {
@@ -130,13 +364,19 @@ function reconcileResults(
     input: content
   });
   
-  // 1. 높은 신뢰도 키워드 결과 우선 (신뢰도 0.9 이상)
-  if (keywordResult.confidence >= 0.9) {
-    console.log('✅ High confidence keyword result used');
+  // 1. GPT-4o 결과 우선 (높은 신뢰도일 때)
+  if (gptResult.confidence >= 0.8) {
+    console.log('🧠 High confidence GPT-4o result used');
+    return convertToFinalResult(gptResult.intent, existingParams);
+  }
+  
+  // 2. 높은 신뢰도 키워드 결과 (명확한 패턴만)
+  if (keywordResult.confidence >= 0.95) {
+    console.log('✅ Very high confidence keyword result used');
     return convertToFinalResult(keywordResult.intent, existingParams);
   }
   
-  // 2. 두 결과가 일치하는 경우
+  // 3. 두 결과가 일치하는 경우
   if (keywordResult.intent === gptResult.intent) {
     console.log('✅ Both analyses agree');
     return convertToFinalResult(keywordResult.intent, existingParams);
@@ -183,6 +423,8 @@ function convertToFinalResult(intent: string, existingParams: any): {isTravel: b
       return {isTravel: true, reason: 'new_travel_request', shouldOfferContinue: false, intent};
     case 'travel_continue':
       return {isTravel: false, reason: 'travel_status_inquiry', shouldOfferContinue: false, intent};
+    case 'travel_parameter':
+      return {isTravel: true, reason: 'parameter_provided', shouldOfferContinue: false, intent};
     case 'travel_resume':
       return {isTravel: true, reason: 'resume_requested', shouldOfferContinue: false, intent};
     case 'travel_cancel':
@@ -378,31 +620,58 @@ export function useChat() {
   const [isLoading, setIsLoading] = useState(false);
   const [isInitializing, setIsInitializing] = useState(true);
   const [isCollectingTravelParams, setIsCollectingTravelParams] = useState(false);
+  const [isInitializingInProgress, setIsInitializingInProgress] = useState(false);
+  const [isProcessingMessage, setIsProcessingMessage] = useState(false);
+  const [lastUserId, setLastUserId] = useState<string | null>(null);
   
   // 여행 계획 관련 훅
   const travelPlan = useTravelPlan();
 
   // 세션 초기화 및 메시지 로드
   useEffect(() => {
-    if (!user) {
+    let isMounted = true;
+    const abortController = new AbortController();
+
+    if (!user?.id) {
+      setIsInitializing(false);
+      return;
+    }
+
+    // 동일한 사용자의 중복 초기화 방지
+    if (lastUserId === user.id && currentSession) {
+      console.log('[useChat] Skipping initialization - same user already initialized');
       setIsInitializing(false);
       return;
     }
 
     const initializeChat = async () => {
+      if (!isMounted || isInitializingInProgress || !user?.id) {
+        console.log('[useChat] Skipping initialization - already in progress, unmounted, or no user ID');
+        return;
+      }
+      
+      setIsInitializingInProgress(true);
+      console.log('[useChat] Starting chat initialization...');
       try {
         // 활성 세션 가져오기 또는 생성
+        console.log('[useChat] Getting or creating active session for user:', user.id);
         const session = await chatService.getOrCreateActiveSession(user.id);
+        
+        if (!isMounted) return;
+        
         if (!session) {
-          console.error('Failed to get or create session');
-          setIsInitializing(false);
+          console.error('[useChat] Failed to get or create session');
           return;
         }
+        console.log('[useChat] Session created/retrieved:', session.id);
 
         setCurrentSession(session);
 
         // 세션의 메시지 로드
+        console.log('[useChat] Loading session messages...');
         const sessionMessages = await chatService.getSessionMessages(session.id);
+        
+        if (!isMounted) return;
         
         // ChatMessage를 Message 형식으로 변환
         const formattedMessages: Message[] = sessionMessages.map((msg) => ({
@@ -414,7 +683,7 @@ export function useChat() {
           user_id: msg.user_id,
         }));
 
-        // 메시지가 없으면 웰컴 메시지 추가
+        // 기본 메시지 먼저 설정하여 사용자에게 빠른 피드백 제공
         if (formattedMessages.length === 0) {
           const welcomeMessage: Message = {
             id: 'welcome-' + Date.now(),
@@ -427,26 +696,103 @@ export function useChat() {
         } else {
           setMessages(formattedMessages);
         }
-      } catch (error) {
-        console.error('Error initializing chat:', error);
-      } finally {
+        
+        // 초기화 완료 표시 (빠른 UI 업데이트)
         setIsInitializing(false);
+        setLastUserId(user.id);
+        console.log('[useChat] Basic initialization completed, enriching travel plans...');
+        
+        // 여행 계획 복원은 백그라운드에서 비동기로 실행
+        if (formattedMessages.length > 0) {
+          enrichMessagesWithTravelPlans(formattedMessages, session.id, user.id)
+            .then(() => {
+              // 복원이 완료되면 메시지 업데이트
+              if (isMounted) {
+                console.log('[useChat] Travel plans enrichment completed, updating messages...');
+                setMessages([...formattedMessages]); // 강제 리렌더링
+              }
+            })
+            .catch((error) => {
+              console.warn('[useChat] Travel plans enrichment failed, continuing with basic messages:', error);
+            });
+        }
+      } catch (error) {
+        console.error('[useChat] Error initializing chat:', error);
+        
+        // 에러 발생시에도 기본 상태는 설정
+        setIsInitializing(false);
+        setIsInitializingInProgress(false);
+        
+        // 에러 메시지 표시
+        const errorMessage: Message = {
+          id: 'error-' + Date.now(),
+          role: 'assistant',
+          content: '채팅을 초기화하는 중 문제가 발생했습니다. 페이지를 새로고침해 주세요.',
+          timestamp: new Date(),
+        };
+        setMessages([errorMessage]);
+      } finally {
+        // finally에서는 정리 작업만
+        setIsInitializingInProgress(false);
       }
     };
 
-    initializeChat();
-  }, [user]);
+    // 디바운싱으로 빠른 연속 호출 방지
+    const timeoutId = setTimeout(initializeChat, 100);
+
+    return () => {
+      isMounted = false;
+      abortController.abort();
+      clearTimeout(timeoutId);
+    };
+  }, [user?.id]);
 
   // 메시지 전송
   const sendMessage = useCallback(
     async (content: string) => {
+      console.log('📨 sendMessage called with:', { content, user: !!user, currentSession: !!currentSession });
+      console.log('🔐 Authentication state:', { userId: user?.id, sessionId: currentSession?.id });
+      
       if (!user || !currentSession) {
-        console.error('No user or session available');
+        console.error('No user or session available', { user, currentSession });
         return;
       }
 
+      // 중복 처리 방지
+      if (isProcessingMessage) {
+        console.log('⚠️ 이미 메시지 처리 중, 요청 무시');
+        return;
+      }
+
+      setIsProcessingMessage(true);
+
       // 1단계: 현재 세션의 여행 파라미터 수집 상태 확인
-      const existingParams = await travelPlanService.getSessionParameters(currentSession.id);
+      console.log('🔍 Attempting to get session parameters for session:', currentSession.id);
+      
+      let existingParams = null;
+      try {
+        // 타임아웃 설정 (15초)
+        const timeoutPromise = new Promise<never>((_, reject) => 
+          setTimeout(() => reject(new Error('getSessionParameters timeout')), 15000)
+        );
+        
+        const paramPromise = travelPlanService.getSessionParameters(currentSession.id);
+        existingParams = await Promise.race([paramPromise, timeoutPromise]);
+        
+        console.log('📋 Session parameters result:', existingParams);
+      } catch (error) {
+        console.error('❌ getSessionParameters 에러:', error);
+        // 타임아웃이나 406 에러 시 빈 파라미터로 계속 진행
+        if (error.message?.includes('timeout') || error.message?.includes('406')) {
+          console.log('🔄 에러 무시하고 빈 파라미터로 계속 진행');
+          existingParams = {
+            collection_status: 'incomplete',
+            missing_params: ['title', 'destination', 'duration', 'peopleCount', 'budget', 'travelStyle', 'transportation', 'accommodation']
+          };
+        } else {
+          existingParams = null;
+        }
+      }
 
       // 사용자 메시지 추가 (임시 ID로)
       const tempUserMessage: Message = {
@@ -536,6 +882,7 @@ export function useChat() {
 
           // 2단계: GPT 기반 하이브리드 처리 로직
           const shouldContinueTravel = await shouldProcessAsTravel(content, existingParams, messages);
+          console.log('🎯 의도 분석 결과:', shouldContinueTravel);
           
           if (shouldContinueTravel.isTravel) {
               // 여행 관련 처리 (타임아웃 120초로 연장)
@@ -544,20 +891,30 @@ export function useChat() {
               );
               
               const travelProcessPromise = async () => {
-                // 4단계: 기존 파라미터와 새 파라미터 병합
-                let currentParams = {};
+                // 4단계: 기존 파라미터와 새 파라미터 병합 (DB 필드명 정규화)
+                let currentParams: any = {};
                 if (existingParams) {
                   currentParams = {
+                    title: existingParams.title,
                     destination: existingParams.destination,
                     duration: existingParams.duration,
-                    peopleCount: existingParams.people_count,
+                    people_count: existingParams.people_count, // DB 필드명 유지
                     budget: existingParams.budget,
-                    travelStyle: existingParams.travel_style,
+                    travel_style: existingParams.travel_style, // DB 필드명 유지
                     transportation: existingParams.transportation,
                     accommodation: existingParams.accommodation,
                     collection_status: existingParams.collection_status
                   };
-                  console.log('📊 현재 파라미터:', currentParams);
+                  console.log('📊 현재 파라미터 (DB 형식):', currentParams);
+                }
+                
+                // 새로운 여행 시작 시 title부터 질문
+                if (shouldContinueTravel.intent === 'travel_start') {
+                  // 기존 파라미터 삭제하고 처음부터 시작
+                  if (existingParams) {
+                    await travelPlanService.deleteSessionParameters(currentSession.id);
+                  }
+                  return '이번 여행의 제목을 입력해주세요 (예: 오사카 맛집 탐방, 제주도 힐링 여행, 유럽 배낭여행)';
                 }
                 
                 // 재개 요청이거나 여행 취소 처리
@@ -579,7 +936,10 @@ export function useChat() {
                 }
                 
                 // 새로운 파라미터 추출 및 기존 파라미터와 병합
-                const paramResult = await travelPlan.extractParameters(content, existingParams);
+                console.log('🔍 파라미터 추출 시작:', { content, existingParams });
+                const recentMessages = messages.slice(-10).map(msg => `${msg.role}: ${msg.content}`);
+                const paramResult = await travelPlan.extractParameters(content, existingParams, recentMessages);
+                console.log('📋 파라미터 추출 결과:', paramResult);
                 
                 // 목적지 변경 감지 및 확인 처리
                 if (paramResult.destinationChanged && existingParams?.destination) {
@@ -632,10 +992,11 @@ export function useChat() {
                   const changedSettingsStr = content.replace('설정 변경:', '').trim();
                   const changedSettings: any = {};
                   
-                  // "기간: 5, 예산: 2000000" 형식 파싱
+                  // "시작일: 2025-07-25, 예산: 2000000" 형식 파싱
                   changedSettingsStr.split(',').forEach(item => {
                     const [key, value] = item.split(':').map(s => s.trim());
-                    if (key === '기간') changedSettings.duration = parseInt(value);
+                    if (key === '시작일') changedSettings.start_date = value;
+                    else if (key === '종료일') changedSettings.end_date = value;
                     else if (key === '인원') changedSettings.peopleCount = parseInt(value);
                     else if (key === '예산') changedSettings.budget = parseInt(value);
                     else if (key === '여행스타일') changedSettings.travelStyle = value;
@@ -730,6 +1091,21 @@ export function useChat() {
 
 📅 ${plan.duration}일간의 멋진 여행을 준비했어요. 아래 일정을 확인하고 필요시 수정하거나 다운로드해주세요.`;
 
+                    // 원본 파라미터 정보를 여행 계획에 추가
+                    const planWithParams = {
+                      ...plan,
+                      originalParams: {
+                        title: currentParams.title,
+                        destination: currentParams.destination,
+                        duration: currentParams.duration,
+                        peopleCount: currentParams.people_count,
+                        budget: currentParams.budget,
+                        travelStyle: currentParams.travel_style,
+                        transportation: currentParams.transportation,
+                        accommodation: currentParams.accommodation
+                      }
+                    };
+
                     // AI 응답 메시지 추가 (임시 ID로) - 여행 계획 포함
                     const tempAiMessage: Message = {
                       id: 'temp-ai-' + Date.now(),
@@ -738,7 +1114,7 @@ export function useChat() {
                       content: planMessage,
                       timestamp: new Date(),
                       user_id: user.id,
-                      travelPlan: plan, // 생성된 여행 계획 포함
+                      travelPlan: planWithParams, // 원본 파라미터 포함된 여행 계획
                     };
 
                     setMessages((prev) => [...prev, tempAiMessage]);
@@ -759,7 +1135,7 @@ export function useChat() {
                                 ...msg,
                                 id: savedAiMessage.id,
                                 timestamp: new Date(savedAiMessage.created_at),
-                                travelPlan: plan, // 여행 계획 데이터 유지
+                                travelPlan: planWithParams, // 원본 파라미터 포함된 여행 계획 데이터 유지
                               }
                             : msg
                         )
@@ -785,7 +1161,7 @@ export function useChat() {
                     
                     return `${(currentParams as any).destination} 여행을 처음부터 새로 계획해드릴게요! 
                     
-며칠 동안 여행하실 예정인가요? (예: 2박3일, 1주일 등)`;
+여행 시작일은 언제인가요? (예: 7월 25일, 8월 3일, 내일, 다음주 등)`;
                   } else if (userResponse === '일부만 바꿀게요' || userResponse === '일부 수정' || userResponse === '일부만') {
                     console.log('✅ 일부만 수정 선택됨');
                     // 부분 수정 모드 - 편집기 표시
@@ -836,10 +1212,29 @@ export function useChat() {
                   }
                 }
                 
+                // 새로 추출된 파라미터를 DB 필드명으로 변환
+                const convertedParams: any = {};
+                if (paramResult.collectedParams) {
+                  Object.entries(paramResult.collectedParams).forEach(([key, value]) => {
+                    switch(key) {
+                      case 'peopleCount':
+                        convertedParams.people_count = value;
+                        break;
+                      case 'travelStyle':
+                        convertedParams.travel_style = value;
+                        break;
+                      default:
+                        convertedParams[key] = value;
+                    }
+                  });
+                }
+                
                 const mergedParams = { 
                   ...currentParams, 
-                  ...paramResult.collectedParams
+                  ...convertedParams
                 };
+                
+                console.log('🔄 파라미터 병합 결과:', mergedParams);
                 
                 // ambiguousParams 처리 (확인 질문 생성)
                 if (paramResult.ambiguousParams && Object.keys(paramResult.ambiguousParams).length > 0) {
@@ -865,11 +1260,38 @@ export function useChat() {
                   }
                 }
                 
-                // 필수 파라미터 체크
-                const requiredParams = ['destination', 'duration', 'peopleCount', 'budget', 'travelStyle', 'transportation', 'accommodation'];
-                const missingParams = requiredParams.filter(param => !mergedParams[param as keyof typeof mergedParams]);
+                // 필수 파라미터 체크 (DB 필드명 기준)
+                const requiredParamsDB = [
+                  { field: 'title', name: 'title' },
+                  { field: 'destination', name: 'destination' },
+                  { field: 'start_date', name: 'startDate' },
+                  { field: 'end_date', name: 'endDate' },
+                  { field: 'people_count', name: 'peopleCount' },
+                  { field: 'budget', name: 'budget' },
+                  { field: 'travel_style', name: 'travelStyle' },
+                  { field: 'transportation', name: 'transportation' },
+                  { field: 'accommodation', name: 'accommodation' }
+                ];
+                
+                // 필수 순서대로 정렬된 누락 파라미터 (title이 첫 번째)
+                console.log('🔍 파라미터 존재 체크:');
+                requiredParamsDB.forEach(param => {
+                  const value = mergedParams[param.field as keyof typeof mergedParams];
+                  console.log(`  ${param.field}: ${value} (exists: ${!!value})`);
+                });
+                
+                const missingParams = requiredParamsDB
+                  .filter(param => !mergedParams[param.field as keyof typeof mergedParams])
+                  .map(param => param.name);
+                
+                console.log('❓ 누락된 파라미터들 (순서대로):', missingParams);
                 
                 const isComplete = missingParams.length === 0;
+                
+                // isComplete가 true면 collection_status를 업데이트
+                if (isComplete) {
+                  mergedParams.collection_status = 'complete';
+                }
                 
                 console.log('🔍 파라미터 체크:', { isComplete, missingParams, collection_status: mergedParams.collection_status });
                 
@@ -877,6 +1299,16 @@ export function useChat() {
                 if (mergedParams.collection_status === 'incomplete' || mergedParams.collection_status === 'awaiting_confirmation') {
                   console.log('⏸️ collection_status가', mergedParams.collection_status, '이므로 계획 생성 건너뜀');
                   if (missingParams.length > 0) {
+                    // 부분적으로 수집된 파라미터 저장 (병합된 파라미터 사용)
+                    console.log('💾 파라미터 저장 시도:', { sessionId: currentSession.id, mergedParams, missingParams });
+                    const savedParams = await travelPlanService.createOrUpdateSessionParameters(
+                      currentSession.id,
+                      user.id,
+                      mergedParams,
+                      missingParams
+                    );
+                    console.log('💾 파라미터 저장 결과:', savedParams ? '성공' : '실패');
+                    
                     const question = await travelPlan.generateQuestion(missingParams[0]);
                     return question;
                   }
@@ -896,8 +1328,20 @@ export function useChat() {
                   };
                   setMessages((prev) => [...prev, progressMessage]);
                   
-                  // 모든 파라미터가 수집되었으면 일정 생성
-                  const plan = await travelPlan.generateTravelPlan(mergedParams);
+                  // 모든 파라미터가 수집되었으면 일정 생성 (API용 camelCase 형식으로 변환)
+                  const planParams = {
+                    title: mergedParams.title,
+                    destination: mergedParams.destination,
+                    duration: mergedParams.duration,
+                    peopleCount: mergedParams.people_count,
+                    budget: mergedParams.budget,
+                    travelStyle: mergedParams.travel_style,
+                    transportation: mergedParams.transportation,
+                    accommodation: mergedParams.accommodation
+                  };
+                  
+                  console.log('🎯 계획 생성용 파라미터:', planParams);
+                  const plan = await travelPlan.generateTravelPlan(planParams);
                   
                   // 진행 상황 메시지 제거
                   setMessages((prev) => prev.filter(msg => msg.id !== progressMessage.id));
@@ -914,7 +1358,7 @@ export function useChat() {
                   const savedPlan = await travelPlanService.createTravelPlan(
                     user.id,
                     currentSession.id,
-                    mergedParams,
+                    planParams, // camelCase 형식 사용
                     plan
                   );
                   
@@ -927,6 +1371,12 @@ export function useChat() {
                   console.log('📋 계획 데이터:', plan);
                   console.log('⏰ 계획 생성 시간:', new Date().toISOString());
 
+                  // 원본 파라미터 정보를 여행 계획에 추가
+                  const planWithParams = {
+                    ...plan,
+                    originalParams: planParams // 원본 파라미터 정보 추가
+                  };
+
                   // AI 응답 메시지 추가 (임시 ID로) - 여행 계획 포함
                   const tempAiMessage: Message = {
                     id: 'temp-ai-' + Date.now(),
@@ -935,7 +1385,7 @@ export function useChat() {
                     content: planMessage,
                     timestamp: new Date(),
                     user_id: user.id,
-                    travelPlan: plan, // 생성된 여행 계획 포함
+                    travelPlan: planWithParams, // 원본 파라미터 포함된 여행 계획
                   };
 
                   console.log('📝 메시지에 여행 계획 포함됨:', !!tempAiMessage.travelPlan);
@@ -958,7 +1408,7 @@ export function useChat() {
                               ...msg,
                               id: savedAiMessage.id,
                               timestamp: new Date(savedAiMessage.created_at),
-                              travelPlan: plan, // 여행 계획 데이터 유지
+                              travelPlan: planWithParams, // 원본 파라미터 포함된 여행 계획 데이터 유지
                             }
                           : msg
                       )
@@ -971,12 +1421,14 @@ export function useChat() {
                   const question = await travelPlan.generateQuestion(missingParams[0]);
                   
                   // 부분적으로 수집된 파라미터 저장 (병합된 파라미터 사용)
-                  await travelPlanService.createOrUpdateSessionParameters(
+                  console.log('💾 파라미터 저장 시도:', { sessionId: currentSession.id, mergedParams, missingParams });
+                  const savedParams = await travelPlanService.createOrUpdateSessionParameters(
                     currentSession.id,
                     user.id,
                     mergedParams,
                     missingParams
                   );
+                  console.log('💾 파라미터 저장 결과:', savedParams ? '성공' : '실패');
                   
                   return question;
                 }
@@ -1202,9 +1654,10 @@ export function useChat() {
       } finally {
         // 항상 로딩 상태 해제
         setIsLoading(false);
+        setIsProcessingMessage(false);
       }
     },
-    [user, currentSession, messages.length]
+    [user, currentSession, messages.length, isProcessingMessage]
   );
 
   // 새 세션 시작

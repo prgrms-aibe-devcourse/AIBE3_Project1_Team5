@@ -1,5 +1,33 @@
 #!/usr/bin/env node
 
+// 환경 변수 수동 로딩
+import * as fs from 'fs';
+import * as path from 'path';
+
+function loadEnvFile() {
+  try {
+    const envPath = path.join(process.cwd(), '.env.local');
+    if (fs.existsSync(envPath)) {
+      const envContent = fs.readFileSync(envPath, 'utf8');
+      envContent.split('\n').forEach(line => {
+        const [key, ...valueParts] = line.split('=');
+        if (key && valueParts.length > 0) {
+          const value = valueParts.join('=').trim();
+          process.env[key.trim()] = value;
+        }
+      });
+      console.log('✅ Environment variables loaded from .env.local');
+    } else {
+      console.log('⚠️ .env.local file not found');
+    }
+  } catch (error) {
+    console.error('❌ Error loading .env.local:', error);
+  }
+}
+
+// 환경 변수 로드
+loadEnvFile();
+
 import { ChatbotTester } from '../test/chatbot-test';
 import { ConversationLogger } from '../lib/conversationLogger';
 import { ChatAnalyzer } from '../lib/chatAnalyzer';

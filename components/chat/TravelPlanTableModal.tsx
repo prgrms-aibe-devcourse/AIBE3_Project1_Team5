@@ -1,5 +1,4 @@
 import React from 'react';
-import { Calendar, MapPin, Users, DollarSign, Clock, AlertTriangle, Phone } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { TravelPlan, ImprovedDaySchedule, ImprovedScheduleItem } from '@/lib/openai';
@@ -9,6 +8,10 @@ interface TravelPlanTableModalProps {
 }
 
 export default function TravelPlanTableModal({ plan }: TravelPlanTableModalProps) {
+  // 디버깅: 전달받은 plan 객체 확인
+  console.log('🔍 TravelPlanTableModal - 전달받은 plan:', plan);
+  console.log('🔍 TravelPlanTableModal - plan.overview:', plan.overview);
+  
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('ko-KR', {
       style: 'currency',
@@ -19,20 +22,54 @@ export default function TravelPlanTableModal({ plan }: TravelPlanTableModalProps
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case '✅': return 'text-green-600 bg-green-50';
       case '❌': return 'text-red-600 bg-red-50';
       case '🔜': return 'text-yellow-600 bg-yellow-50';
+      case '확정': return 'text-green-600 bg-green-50';
+      case '미정': return 'text-red-600 bg-red-50';
+      case '예정': return 'text-yellow-600 bg-yellow-50';
       default: return 'text-gray-600 bg-gray-50';
     }
   };
+
+  // overview 데이터가 없을 때 대체 값 생성
+  const getOverviewData = () => {
+    if (plan.overview) {
+      return plan.overview;
+    }
+    
+    // overview가 없으면 원본 파라미터나 plan의 다른 데이터로부터 생성
+    console.log('⚠️ overview 데이터 없음, 대체 데이터 생성');
+    const originalParams = (plan as any).originalParams;
+    console.log('📋 원본 파라미터:', originalParams);
+    
+    return {
+      dates: plan.startDate && plan.endDate 
+        ? `${plan.startDate} ~ ${plan.endDate}` 
+        : `${plan.duration}일간`,
+      people: originalParams?.peopleCount 
+        ? `${originalParams.peopleCount}명` 
+        : plan.duration 
+          ? '정보 없음' 
+          : '정보 없음',
+      transportation: originalParams?.transportation || '정보 없음',
+      accommodation: originalParams?.accommodation || '정보 없음',
+      theme: originalParams?.travelStyle || plan.destination ? `${plan.destination} 여행` : '정보 없음',
+      budgetRange: plan.totalBudget 
+        ? formatCurrency(plan.totalBudget) 
+        : originalParams?.budget
+          ? formatCurrency(originalParams.budget)
+          : '정보 없음'
+    };
+  };
+
+  const overviewData = getOverviewData();
 
   return (
     <div className="space-y-6 p-4">
       {/* 여행 개요 테이블 */}
       <Card>
         <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <MapPin className="h-5 w-5 text-blue-600" />
+          <CardTitle>
             📌 여행 개요
           </CardTitle>
         </CardHeader>
@@ -46,27 +83,27 @@ export default function TravelPlanTableModal({ plan }: TravelPlanTableModalProps
                 </tr>
                 <tr className="border-b border-gray-300">
                   <td className="border-r border-gray-300 px-4 py-2 font-medium">여행 일정</td>
-                  <td className="border-r border-gray-300 px-4 py-2">{plan.overview?.dates}</td>
+                  <td className="border-r border-gray-300 px-4 py-2">{overviewData.dates}</td>
                 </tr>
                 <tr className="border-b border-gray-300">
                   <td className="border-r border-gray-300 px-4 py-2 font-medium">인원</td>
-                  <td className="border-r border-gray-300 px-4 py-2">{plan.overview?.people}</td>
+                  <td className="border-r border-gray-300 px-4 py-2">{overviewData.people}</td>
                 </tr>
                 <tr className="border-b border-gray-300">
                   <td className="border-r border-gray-300 px-4 py-2 font-medium">교통</td>
-                  <td className="border-r border-gray-300 px-4 py-2">{plan.overview?.transportation}</td>
+                  <td className="border-r border-gray-300 px-4 py-2">{overviewData.transportation}</td>
                 </tr>
                 <tr className="border-b border-gray-300">
                   <td className="border-r border-gray-300 px-4 py-2 font-medium">숙소</td>
-                  <td className="border-r border-gray-300 px-4 py-2">{plan.overview?.accommodation}</td>
+                  <td className="border-r border-gray-300 px-4 py-2">{overviewData.accommodation}</td>
                 </tr>
                 <tr className="border-b border-gray-300">
                   <td className="border-r border-gray-300 px-4 py-2 font-medium">여행 테마</td>
-                  <td className="border-r border-gray-300 px-4 py-2">{plan.overview?.theme}</td>
+                  <td className="border-r border-gray-300 px-4 py-2">{overviewData.theme}</td>
                 </tr>
                 <tr>
                   <td className="border-r border-gray-300 px-4 py-2 font-medium">총 예상 예산</td>
-                  <td className="border-r border-gray-300 px-4 py-2 font-semibold text-blue-600">{plan.overview?.budgetRange}</td>
+                  <td className="border-r border-gray-300 px-4 py-2 font-semibold text-blue-600">{overviewData.budgetRange}</td>
                 </tr>
               </tbody>
             </table>
@@ -78,8 +115,7 @@ export default function TravelPlanTableModal({ plan }: TravelPlanTableModalProps
       {plan.schedule.map((day: ImprovedDaySchedule, dayIndex: number) => (
         <Card key={dayIndex}>
           <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Calendar className="h-5 w-5 text-blue-600" />
+            <CardTitle>
               📅 {day.title}
             </CardTitle>
           </CardHeader>
@@ -145,7 +181,7 @@ export default function TravelPlanTableModal({ plan }: TravelPlanTableModalProps
       {plan.mealSummary && plan.mealSummary.length > 0 && (
         <Card>
           <CardHeader>
-            <CardTitle className="flex items-center gap-2">
+            <CardTitle>
               🍽️ 식사 요약
             </CardTitle>
           </CardHeader>
@@ -166,7 +202,7 @@ export default function TravelPlanTableModal({ plan }: TravelPlanTableModalProps
                       <td className="border-r border-gray-300 px-4 py-2">{meal.day} {meal.meal}</td>
                       <td className="border-r border-gray-300 px-4 py-2 font-medium">{meal.restaurant}</td>
                       <td className="border-r border-gray-300 px-4 py-2">
-                        <Badge variant={meal.status.includes('✅') ? 'default' : 'secondary'}>
+                        <Badge variant={meal.status.includes('확정') ? 'default' : 'secondary'}>
                           {meal.status}
                         </Badge>
                       </td>
@@ -186,8 +222,7 @@ export default function TravelPlanTableModal({ plan }: TravelPlanTableModalProps
       {plan.costBreakdown && (
         <Card>
           <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <DollarSign className="h-5 w-5 text-green-600" />
+            <CardTitle>
               💰 비용 분석
             </CardTitle>
           </CardHeader>
@@ -255,7 +290,7 @@ export default function TravelPlanTableModal({ plan }: TravelPlanTableModalProps
       {plan.tips && plan.tips.length > 0 && (
         <Card>
           <CardHeader>
-            <CardTitle className="flex items-center gap-2">
+            <CardTitle>
               💡 여행 팁
             </CardTitle>
           </CardHeader>
@@ -276,8 +311,7 @@ export default function TravelPlanTableModal({ plan }: TravelPlanTableModalProps
       {plan.requirements && plan.requirements.length > 0 && (
         <Card>
           <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <AlertTriangle className="h-5 w-5 text-red-600" />
+            <CardTitle>
               📋 준비사항
             </CardTitle>
           </CardHeader>
@@ -298,8 +332,7 @@ export default function TravelPlanTableModal({ plan }: TravelPlanTableModalProps
       {plan.emergencyInfo && (
         <Card>
           <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Phone className="h-5 w-5 text-red-600" />
+            <CardTitle>
               🚨 응급 연락처
             </CardTitle>
           </CardHeader>

@@ -8,8 +8,11 @@ const openai = new OpenAI({
 
 // 여행 파라미터 인터페이스
 export interface TravelParameters {
+  title?: string;
   destination?: string;
-  duration?: number;
+  startDate?: string;  // 여행 시작일 (YYYY-MM-DD)
+  endDate?: string;    // 여행 종료일 (YYYY-MM-DD)
+  duration?: number;   // 자동 계산된 기간 (일수) - 하위 호환성을 위해 유지
   peopleCount?: number;
   budget?: number;
   transportation?: string;
@@ -54,7 +57,7 @@ export interface ImprovedScheduleItem {
   time: string;
   activity: string;
   location: string;
-  status: '✅' | '❌' | '🔜';
+  status: '확정' | '미정' | '예정';
   note?: string;
   cost: number;
   duration?: string;
@@ -111,17 +114,19 @@ export interface TravelPlan {
   title: string;
   destination: string;
   duration: number;
-  startDate: string;
-  endDate: string;
-  totalBudget: number;
-  currency: string;
-  overview: TravelOverview;
+  startDate?: string;
+  endDate?: string;
+  totalBudget?: number;
+  currency?: string;
+  overview?: TravelOverview;
   schedule: ImprovedDaySchedule[];
-  mealSummary: MealSummary[];
-  costBreakdown: CostBreakdown;
-  tips: string[];
-  requirements: string[];
-  emergencyInfo: EmergencyInfo;
+  mealSummary?: MealSummary[];
+  costBreakdown?: CostBreakdown;
+  tips?: string[];
+  requirements?: string[];
+  emergencyInfo?: EmergencyInfo;
+  originalParams?: any; // 원본 파라미터 (선택사항)
+  dbPlanId?: string; // DB 계획 ID (선택사항)
 }
 
 // 기존 호환성을 위한 레거시 인터페이스
@@ -141,16 +146,39 @@ export interface LegacyTravelPlan {
 // 프롬프트 템플릿
 const PROMPTS = {
   classifyIntent: `
-You are an advanced intent classifier for a travel planning assistant. Analyze the user's message and determine their intent with consideration for context.
+You are an advanced intent classifier for a travel planning assistant powered by GPT-4o. Use your full conversational AI capabilities to understand user intent from context, tone, and implicit meaning.
+
+CONVERSATIONAL UNDERSTANDING:
+- Analyze the FULL conversation context, not just keywords
+- Understand implicit intent: "대구여행" clearly means user wants to provide a travel title
+- Consider conversational flow: if AI just asked for title, user's response is likely the title
+- Use contextual reasoning: "대구가고싶다" → travel_start, "대구여행" (after title question) → travel_parameter
 
 Your task is to classify if the user wants to:
-1. Continue/start travel planning
-2. Cancel/stop travel planning 
-3. Resume travel planning
-4. Ask general questions unrelated to travel
+1. Start new travel planning (travel_start)
+2. Continue existing travel planning conversation (travel_continue)  
+3. Provide travel parameters during collection process (travel_parameter)
+4. Cancel/stop travel planning (travel_cancel)
+5. Resume previous travel planning (travel_resume)
+6. Ask general questions unrelated to travel (general)
+
+CRITICAL: Detect travel parameter inputs during collection process:
+- ONLY classify as "travel_parameter" if user has EXISTING incomplete travel parameters
+- Duration patterns: "2일", "3일", "1박2일", "2박3일", "1주일" → travel_parameter (if existing params)
+- Place names: "서울", "부산", "제주", "일본", "도쿄", "파리" → travel_parameter (if existing params)  
+- People count: "2명", "혼자", "둘이서", "3명" → travel_parameter (if existing params)
+- Budget amounts: "100만원", "50만원", "200만원" → travel_parameter (if existing params)
+- Travel styles: "힐링", "액티비티", "문화탐방", "카페투어" → travel_parameter (if existing params)
+- Transportation: "비행기", "기차", "버스", "KTX" → travel_parameter (if existing params)
+- Accommodation: "호텔", "펜션", "게스트하우스" → travel_parameter (if existing params)
+
+NEW TRAVEL DETECTION:
+- If NO existing travel parameters and user mentions travel plans like "도쿄 여행", "제주도 가고싶다", "파리 여행계획" → travel_start
+- Travel expressions without existing context should start new planning, not continue parameter collection
 
 Context considerations:
-- If user previously had incomplete travel parameters, consider if they want to continue
+- If user previously had incomplete travel parameters and provides specific travel info, classify as "travel_parameter"
+- If NO existing travel parameters, travel-related expressions should be "travel_start"
 - Recognize explicit cancellation phrases like "여행 안갈래", "안간다", "취소", "그만", "중단", "멈춰", "안할래"
 - Recognize resumption phrases like "계속", "다시", "재개", "진행", "이어서", "계속해줘", "다시 시작"
 - When user gives affirmative responses (네, 응, 맞아, 그래, yes, ok, okay, sure, etc.) after being asked about travel continuation, classify as "travel_resume"
@@ -160,10 +188,10 @@ Context considerations:
 
 Return a JSON object with:
 {
-  "intent": "travel_start" | "travel_continue" | "travel_cancel" | "travel_resume" | "general",
+  "intent": "travel_start" | "travel_continue" | "travel_parameter" | "travel_cancel" | "travel_resume" | "general",
   "confidence": number (0-1),
   "reasoning": "brief explanation",
-  "isTravelRequest": boolean (true for travel_start, travel_continue, travel_resume),
+  "isTravelRequest": boolean (true for travel_start, travel_continue, travel_parameter, travel_resume),
   "shouldOfferContinue": boolean (false if user explicitly indicates NOT travel-related)
 }
 `,
@@ -171,8 +199,11 @@ Return a JSON object with:
 You are a travel planning assistant. Extract travel parameters from the user's message.
 
 Extract the following information:
+- title (REQUIRED): Travel title/name given by user (examples: "오사카 맛집 탐방", "제주도 힐링 여행", "유럽 배낭여행")
 - destination (REQUIRED): The specific place they want to visit
-- duration (REQUIRED): Number of days/nights (Korean formats like "2박3일", "3박4일", "1주일" should be converted to numbers: 2박3일=3, 3박4일=4, 1주일=7)
+- startDate (REQUIRED): Travel start date in YYYY-MM-DD format (Korean dates like "7월 25일", "8월 3일" should be converted to 2025-07-25, 2025-08-03)
+- endDate (REQUIRED): Travel end date in YYYY-MM-DD format (Korean dates like "7월 28일", "8월 7일" should be converted to 2025-07-28, 2025-08-07)
+- duration: Automatically calculated from start and end dates (for compatibility)
 - peopleCount (REQUIRED): Number of travelers (Korean formats like "2명", "세명", "혼자" should be converted: 혼자=1, 둘=2, 세명=3)
 - budget (REQUIRED): Total budget in KRW or specified currency (must be specific amount)
 - travelStyle (REQUIRED): Travel style preference (luxury, budget, adventure, cultural, family, romantic, business, etc.)
@@ -183,18 +214,24 @@ DESTINATION CHANGE DETECTION:
 - If a new destination is mentioned and it's different from any existing destination, mark it as "destinationChanged": true
 - Examples of destination change: "일본 대신 제주도로", "파리 말고 런던으로", "도쿄에서 오사카로 변경"
 
-IMPORTANT RULES:
-1. ALL 7 required parameters must be present to mark as complete
-2. Destination must be specific (not just "Europe" or "Asia")
-3. Duration must be a specific number (not "a few days")
-4. PeopleCount must be a specific number (not "some friends")
-5. Budget must have a specific amount (not "reasonable" or "cheap")
-6. TravelStyle: Accept ANY travel style description as-is - VERY IMPORTANT: Even unusual or creative travel styles like "격투여행", "음악여행", "카페투어" should be recognized as valid travel styles
-7. Transportation: Accept ANY transportation method as-is - do NOT convert (비행기, KTX, 지하철, etc.)
-8. Accommodation: Accept ANY accommodation type as-is - do NOT convert (호텔, 펜션, 에어비앤비, etc.)
+CONVERSATIONAL CONTEXT RULES:
+1. ALL 9 required parameters must be present to mark as complete (title, destination, startDate, endDate, peopleCount, budget, travelStyle, transportation, accommodation)
+2. USE CONTEXT: If AI just asked for title and user responds with "대구여행", extract it as title
+3. Title: Accept ANY user input including simple ones like "대구여행", "제주도", "오사카 여행"
+4. Destination must be specific (not just "Europe" or "Asia")
+5. StartDate must be a specific date (not "sometime next week")
+6. EndDate must be a specific date (not "a few days later")
+7. PeopleCount must be a specific number (not "some friends")
+8. Budget must have a specific amount (not "reasonable" or "cheap")
+9. TravelStyle: Accept ANY travel style description as-is - VERY IMPORTANT: Even unusual or creative travel styles like "격투여행", "음악여행", "카페투어" should be recognized as valid travel styles
+10. Transportation: Accept ANY transportation method as-is - do NOT convert (비행기, KTX, 지하철, etc.)
+11. Accommodation: Accept ANY accommodation type as-is - do NOT convert (호텔, 펜션, 에어비앤비, etc.)
+
+CRITICAL: If user says "대구 여행일정" or similar, do NOT extract both title and destination. Only extract what they explicitly provided as an answer to a specific question.
 
 Examples of Korean expressions to recognize:
-- Duration: "2박3일" → duration: 3, "3박4일" → duration: 4, "1주일" → duration: 7, "이틀" → duration: 2
+- Start Date: "7월 25일" → startDate: "2025-07-25", "8월 3일" → startDate: "2025-08-03", "내일" → startDate: "2025-07-21", "다음주" → startDate: "2025-07-27"
+- End Date: "7월 28일" → endDate: "2025-07-28", "8월 7일" → endDate: "2025-08-07", "2일 후" → endDate: "2025-07-23", "일주일 후" → endDate: "2025-07-28"
 - People: "2명" → peopleCount: 2, "혼자" → peopleCount: 1, "둘이서" → peopleCount: 2, "세명" → peopleCount: 3
 - Budget: "100만원" → budget: 1000000, "50만원" → budget: 500000, "200만원" → budget: 2000000
 - TravelStyle: Accept any travel style description as-is, including creative/unusual styles (여유로운 휴양, 카페투어, 격투여행, 음악여행, 액티비티, 문화탐방, 휴식, 힐링, etc.)
@@ -210,7 +247,8 @@ Return a JSON object with:
   "collectedParams": { ... only parameters that are specifically mentioned and converted to proper format ... },
   "ambiguousParams": { ... parameters that need clarification with suggested options ... },
   "missingParams": [ ... list of missing required parameters ... ],
-  "isComplete": boolean (true ONLY if ALL 7 required params are present and specific),
+  "isComplete": boolean (true ONLY if ALL 8 required params are present and specific),
+  "calculatedDuration": number (automatically calculated from start and end dates if both are provided),
   "destinationChanged": boolean (true if a destination change is detected)
 }
 
@@ -226,8 +264,10 @@ Missing parameter: {PARAM}
 
 Generate only one question, make it friendly and conversational.
 Examples:
+- For title: "이번 여행의 제목을 입력해주세요 (예: 오사카 맛집 탐방, 제주도 힐링 여행, 유럽 배낭여행)"
 - For destination: "어느 도시나 지역을 방문하고 싶으신가요?"
-- For duration: "며칠 동안 여행하실 예정인가요? (예: 3박 4일, 1주일 등)"
+- For startDate: "여행 시작일은 언제인가요? (예: 7월 25일, 8월 3일, 내일, 다음주 등)"
+- For endDate: "여행 종료일은 언제인가요? (예: 7월 28일, 8월 7일, 3일 후 등)"
 - For peopleCount: "몇 명이서 함께 여행하시나요?"
 - For budget: "여행 예산은 얼마나 생각하고 계신가요? (예: 100만원, 500만원 등)"
 - For travelStyle: "어떤 스타일의 여행을 원하시나요?\n1. 여유로운 휴양\n2. 액티비티 중심\n3. 문화 탐방\n4. 카페/맛집 투어\n5. 쇼핑 중심\n6. 로맨틱\n7. 자연/힐링\n8. 기타 (직접 입력)"
@@ -245,7 +285,8 @@ User's ambiguous input: {USER_INPUT}
 
 Generate a clarification question with specific options to choose from.
 Examples:
-- For duration "2일정도": "2일정도면 1박2일 여행을 말씀하시는 건가요? 아니면 2박3일인가요?"
+- For startDate "언젠가": "여행 시작일을 구체적으로 알려주세요. 예를 들어 7월 25일, 8월 3일처럼 말씀해주세요."
+- For endDate "며칠 후": "여행 종료일을 구체적으로 알려주세요. 예를 들어 7월 28일, 8월 7일처럼 말씀해주세요."
 - For budget "적당히": "예산을 좀 더 구체적으로 알려주세요. 50만원, 100만원, 200만원 중 어느 정도가 적당하실까요?"
 - For peopleCount "몇명": "정확히 몇 명이서 여행하실 건가요? (예: 2명, 3명, 4명 등)"
 
@@ -304,12 +345,12 @@ IMPORTANT:
 - Respond in KOREAN language. All text fields must be in Korean.
 - Use REAL, SPECIFIC names of restaurants, cafes, attractions, and accommodations
 - Provide REALISTIC costs and timing
-- Include confirmation status: ✅ (confirmed), ❌ (not decided), 🔜 (planned)
+- Include confirmation status: 확정 (confirmed), 미정 (not decided), 예정 (planned)
 - Format as a comprehensive table-style itinerary
 
 Return a JSON object with this structure:
 {
-  "title": "✅ {목적지} {기간} {여행스타일} 플랜 (날짜 / {인원} 기준)",
+  "title": "{목적지} {기간} {여행스타일} 플랜 (날짜 / {인원} 기준)",
   "destination": "구체적인 목적지",
   "duration": number,
   "startDate": "2025-06-05",
@@ -334,7 +375,7 @@ Return a JSON object with this structure:
           "time": "10:19",
           "activity": "여수EXPO역 도착",
           "location": "여수EXPO역",
-          "status": "✅",
+          "status": "확정",
           "note": "KTX",
           "cost": 0,
           "duration": "",
@@ -344,7 +385,7 @@ Return a JSON object with this structure:
           "time": "11:00", 
           "activity": "점심: 정다운식당",
           "location": "정다운식당 (실제 주소)",
-          "status": "✅",
+          "status": "확정",
           "note": "게장정식 추천",
           "cost": 25000,
           "duration": "1시간 30분",
@@ -359,7 +400,7 @@ Return a JSON object with this structure:
       "day": "Day 1",
       "meal": "점심",
       "restaurant": "정다운식당",
-      "status": "✅ 확정",
+      "status": "확정",
       "cost": 25000
     }
   ],
@@ -384,7 +425,7 @@ CRITICAL REQUIREMENTS:
 1. Use REAL restaurant names, not generic ones
 2. Include REAL attraction names with actual addresses
 3. Provide REALISTIC costs based on current market prices
-4. Use confirmation status symbols (✅❌🔜) for each item
+4. Use confirmation status (확정/미정/예정) for each item
 5. Make transportation times and routes realistic
 6. Include specific local dishes and specialties
 7. Format as a structured table-style itinerary
@@ -430,7 +471,7 @@ export async function classifyTravelIntent(
   hasExistingParams: boolean = false,
   recentMessages: string[] = []
 ): Promise<{
-  intent: 'travel_start' | 'travel_continue' | 'travel_cancel' | 'travel_resume' | 'general',
+  intent: 'travel_start' | 'travel_continue' | 'travel_cancel' | 'travel_resume' | 'travel_parameter' | 'general',
   confidence: number,
   reasoning: string,
   isTravelRequest: boolean
@@ -473,7 +514,8 @@ export async function classifyTravelIntent(
 // 파라미터 추출 함수
 export async function extractTravelParameters(
   userMessage: string, 
-  existingParams?: any
+  existingParams?: any,
+  recentMessages: string[] = []
 ): Promise<ParameterCollectionStatus & { destinationChanged?: boolean }> {
   try {
     let systemPrompt = PROMPTS.extractParameters;
@@ -483,6 +525,15 @@ export async function extractTravelParameters(
       systemPrompt += `\n\nEXISTING DESTINATION: ${existingParams.destination}\nDetect if the user wants to change to a different destination.`;
     }
 
+    // 대화 맥락 구성 (최근 10개 메시지)
+    const contextMessages = recentMessages.slice(-10).map(msgStr => {
+      const [role, content] = msgStr.split(': ', 2);
+      return {
+        role: role as 'user' | 'assistant',
+        content: content || msgStr
+      };
+    });
+
     const response = await openai.chat.completions.create({
       model: 'gpt-4o',
       messages: [
@@ -490,6 +541,7 @@ export async function extractTravelParameters(
           role: 'system',
           content: systemPrompt
         },
+        ...contextMessages,
         {
           role: 'user',
           content: userMessage
@@ -504,19 +556,206 @@ export async function extractTravelParameters(
       throw new Error('No response from OpenAI');
     }
 
-    return JSON.parse(result);
+    // OpenAI 응답 원본 로깅 (디버깅용)
+    console.log('🤖 OpenAI extractParameters 원본 응답:', result);
+    console.log('🎯 입력 메시지:', userMessage);
+
+    const parsedResult = JSON.parse(result);
+    console.log('📊 파싱된 결과:', parsedResult);
+    
+    // 백업 로직: OpenAI가 도시명을 놓쳤을 때 키워드 기반으로 보완
+    const enhancedResult = enhanceParameterExtraction(userMessage, parsedResult, existingParams);
+    console.log('🔧 백업 로직 적용 후:', enhancedResult);
+    
+    // 날짜 파싱 및 기간 자동 계산
+    const dateProcessedResult = processDateParameters(enhancedResult);
+    console.log('📅 날짜 처리 후:', dateProcessedResult);
+    
+    return dateProcessedResult;
   } catch (error) {
     console.error('Error extracting parameters:', error);
     throw error;
   }
 }
 
+// 백업 파라미터 추출 로직 (키워드 기반)
+function enhanceParameterExtraction(
+  userMessage: string, 
+  aiResult: any, 
+  existingParams?: any
+): any {
+  const message = userMessage.trim();
+  const result = { ...aiResult };
+  
+  // 도시명 키워드 리스트 (자주 사용되는 여행지)
+  const destinations = [
+    // 국내
+    '서울', '부산', '제주', '제주도', '대구', '인천', '광주', '대전', '울산', '세종',
+    '강릉', '속초', '여수', '포항', '경주', '안동', '전주', '목포', '군산', '통영',
+    // 일본
+    '도쿄', '오사카', '교토', '후쿠오카', '나고야', '요코하마', '고베', '히로시마', 
+    '삿포로', '센다이', '가나자와', '나라', '닛코', '하코다테', '오키나와',
+    // 중국
+    '베이징', '상하이', '시안', '청두', '광저우', '심천', '홍콩', '마카오',
+    '대련', '칭다오', '항저우', '소주', '난징', '쿤밍', '하얼빈',
+    // 동남아
+    '방콕', '치앙마이', '푸켓', '파타야', '호치민', '하노이', '다낭', '호이안',
+    '쿠알라룸푸르', '페낭', '싱가포르', '자카르타', '발리', '보라카이', '세부',
+    // 유럽
+    '파리', '런던', '로마', '바르셀로나', '베를린', '프라하', '비엔나', '부다페스트',
+    '암스테르담', '브뤼셀', '취리히', '스톡홀름', '코펜하겐', '헬싱키', '더블린',
+    // 미주
+    '뉴욕', '로스앤젤레스', '라스베이거스', '시애틀', '샌프란시스코', '시카고',
+    '마이애미', '하와이', '토론토', '밴쿠버', '몬트리올'
+  ];
+  
+  // 1. 목적지 백업 추출
+  if (!result.collectedParams?.destination && destinations.some(dest => message.includes(dest))) {
+    const foundDestination = destinations.find(dest => message.includes(dest));
+    if (foundDestination) {
+      console.log('🎯 백업 로직으로 목적지 발견:', foundDestination);
+      result.collectedParams = result.collectedParams || {};
+      result.collectedParams.destination = foundDestination;
+      
+      // missingParams에서 destination 제거
+      if (result.missingParams?.includes('destination')) {
+        result.missingParams = result.missingParams.filter((param: string) => param !== 'destination');
+      }
+    }
+  }
+  
+  // 2. 기간 백업 추출 (숫자+일 패턴)
+  if (!result.collectedParams?.duration) {
+    const durationMatches = [
+      message.match(/(\d+)일/),
+      message.match(/(\d+)박\s*(\d+)일/),
+      message.match(/(\d+)박/),
+      message.match(/(\d+)주일?/),
+      message.match(/(\d+)개월/)
+    ];
+    
+    for (const match of durationMatches) {
+      if (match) {
+        let duration = 0;
+        if (match[0].includes('박') && match[2]) {
+          // X박Y일 형태
+          duration = parseInt(match[2]);
+        } else if (match[0].includes('박')) {
+          // X박 형태 (X박 = X+1일)
+          duration = parseInt(match[1]) + 1;
+        } else if (match[0].includes('주')) {
+          // X주일 형태
+          duration = parseInt(match[1]) * 7;
+        } else if (match[0].includes('개월')) {
+          // X개월 형태
+          duration = parseInt(match[1]) * 30;
+        } else {
+          // X일 형태
+          duration = parseInt(match[1]);
+        }
+        
+        if (duration > 0) {
+          console.log('📅 백업 로직으로 기간 발견:', duration);
+          result.collectedParams = result.collectedParams || {};
+          result.collectedParams.duration = duration;
+          
+          if (result.missingParams?.includes('duration')) {
+            result.missingParams = result.missingParams.filter((param: string) => param !== 'duration');
+          }
+          break;
+        }
+      }
+    }
+  }
+  
+  // 3. 인원수 백업 추출
+  if (!result.collectedParams?.peopleCount) {
+    const peopleMatches = [
+      message.match(/(\d+)명/),
+      message.match(/혼자/),
+      message.match(/둘이?서?/),
+      message.match(/셋이?서?/),
+      message.match(/넷이?서?/)
+    ];
+    
+    for (const match of peopleMatches) {
+      if (match) {
+        let peopleCount = 0;
+        if (match[0] === '혼자') peopleCount = 1;
+        else if (match[0].includes('둘')) peopleCount = 2;
+        else if (match[0].includes('셋')) peopleCount = 3;
+        else if (match[0].includes('넷')) peopleCount = 4;
+        else if (match[1]) peopleCount = parseInt(match[1]);
+        
+        if (peopleCount > 0) {
+          console.log('👥 백업 로직으로 인원수 발견:', peopleCount);
+          result.collectedParams = result.collectedParams || {};
+          result.collectedParams.peopleCount = peopleCount;
+          
+          if (result.missingParams?.includes('peopleCount')) {
+            result.missingParams = result.missingParams.filter((param: string) => param !== 'peopleCount');
+          }
+          break;
+        }
+      }
+    }
+  }
+  
+  return result;
+}
+
+// 날짜 파라미터 처리 및 기간 자동 계산 함수
+function processDateParameters(result: any): any {
+  const processedResult = { ...result };
+  
+  // startDate와 endDate가 모두 있으면 duration 자동 계산
+  if (processedResult.collectedParams?.startDate && processedResult.collectedParams?.endDate) {
+    const startDate = new Date(processedResult.collectedParams.startDate);
+    const endDate = new Date(processedResult.collectedParams.endDate);
+    
+    if (!isNaN(startDate.getTime()) && !isNaN(endDate.getTime())) {
+      const diffTime = Math.abs(endDate.getTime() - startDate.getTime());
+      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1; // +1 because travel days include both start and end
+      
+      processedResult.collectedParams.duration = diffDays;
+      processedResult.calculatedDuration = diffDays;
+      
+      console.log(`📅 자동 계산된 기간: ${processedResult.collectedParams.startDate} ~ ${processedResult.collectedParams.endDate} = ${diffDays}일`);
+      
+      // missingParams에서 duration 제거
+      if (processedResult.missingParams?.includes('duration')) {
+        processedResult.missingParams = processedResult.missingParams.filter((param: string) => param !== 'duration');
+      }
+    }
+  }
+  
+  // startDate와 endDate가 필요한 파라미터 목록에 추가 (duration 대신)
+  if (!processedResult.collectedParams?.startDate && !processedResult.missingParams?.includes('startDate')) {
+    processedResult.missingParams = processedResult.missingParams || [];
+    processedResult.missingParams.push('startDate');
+  }
+  
+  if (!processedResult.collectedParams?.endDate && !processedResult.missingParams?.includes('endDate')) {
+    processedResult.missingParams = processedResult.missingParams || [];
+    processedResult.missingParams.push('endDate');
+  }
+  
+  // duration은 더이상 필수 파라미터가 아니므로 missingParams에서 제거
+  if (processedResult.missingParams?.includes('duration')) {
+    processedResult.missingParams = processedResult.missingParams.filter((param: string) => param !== 'duration');
+  }
+  
+  return processedResult;
+}
+
 // 질문 생성 함수
 export async function generateQuestion(missingParam: string): Promise<string> {
   try {
     const paramNameMap: Record<string, string> = {
+      title: '여행 제목',
       destination: '목적지',
-      duration: '여행 기간',
+      startDate: '여행 시작일',
+      endDate: '여행 종료일',
       peopleCount: '여행 인원',
       budget: '예산',
       travelStyle: '여행 스타일',
@@ -560,7 +799,8 @@ export async function generateParameterConfirmation(
     const confirmationMessage = `${newDestination}로 변경하시는군요! ${newDestination}는 ${previousDestination}와 다른 매력이 있어서 기존 설정을 확인해드릴게요.
 
 현재 설정:
-• 기간: ${existingParams.duration || existingParams.duration}일
+• 시작일: ${existingParams.startDate || existingParams.start_date || '미설정'}
+• 종료일: ${existingParams.endDate || existingParams.end_date || '미설정'}
 • 인원: ${existingParams.people_count || existingParams.peopleCount}명  
 • 예산: ${existingParams.budget ? formatBudget(existingParams.budget) : '미설정'}
 • 여행스타일: ${existingParams.travel_style || existingParams.travelStyle || '미설정'}
@@ -584,7 +824,8 @@ export async function generateClarificationQuestion(param: string, userInput: st
   try {
     const paramNameMap: Record<string, string> = {
       destination: '목적지',
-      duration: '여행 기간',
+      startDate: '여행 시작일',
+      endDate: '여행 종료일',
       peopleCount: '여행 인원',
       budget: '예산',
       travelStyle: '여행 스타일',

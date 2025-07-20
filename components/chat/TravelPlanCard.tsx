@@ -1,12 +1,13 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Calendar, MapPin, Users, DollarSign, Clock, ChevronDown, ChevronUp, Download, Edit, Share2, Table } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogTrigger } from '@/components/ui/dialog';
 import { TravelPlan, ImprovedDaySchedule, TravelOverview, MealSummary, CostBreakdown } from '@/lib/openai';
 import TravelPlanTableModal from './TravelPlanTableModal';
 import { printTravelPlan, generateTravelPlanImage, downloadBlob } from '@/lib/pdfGenerator';
+import { travelPlanService } from '@/lib/travelPlanService';
 
 interface TravelPlanCardProps {
   plan: TravelPlan;
@@ -20,6 +21,60 @@ export default function TravelPlanCard({ plan, onDetailView, onModify, onShare, 
   const [expanded, setExpanded] = useState(false);
   const [showTableModal, setShowTableModal] = useState(false);
   const [isDownloading, setIsDownloading] = useState(false);
+  const [enrichedPlan, setEnrichedPlan] = useState<any>(plan);
+
+  // 원본 파라미터 조회 및 plan 객체에 병합
+  useEffect(() => {
+    const enrichPlanWithOriginalParams = async () => {
+      try {
+        // plan에 이미 originalParams가 있으면 스킵
+        if ((plan as any).originalParams) {
+          setEnrichedPlan(plan);
+          return;
+        }
+
+        // created_from_session_id가 있으면 해당 세션의 파라미터 조회
+        const planWithSessionId = plan as any;
+        if (planWithSessionId.created_from_session_id) {
+          console.log('🔍 원본 파라미터 조회 시작:', planWithSessionId.created_from_session_id);
+          const sessionParams = await travelPlanService.getSessionParameters(planWithSessionId.created_from_session_id);
+          
+          if (sessionParams) {
+            console.log('📋 조회된 세션 파라미터:', sessionParams);
+            const originalParams = {
+              title: sessionParams.title,
+              destination: sessionParams.destination,
+              duration: sessionParams.duration,
+              peopleCount: sessionParams.people_count,
+              budget: sessionParams.budget,
+              travelStyle: sessionParams.travel_style,
+              transportation: sessionParams.transportation,
+              accommodation: sessionParams.accommodation
+            };
+            
+            const enriched = {
+              ...plan,
+              originalParams
+            };
+            
+            console.log('✅ 원본 파라미터 병합 완료:', enriched);
+            setEnrichedPlan(enriched);
+          } else {
+            console.log('⚠️ 세션 파라미터 조회 실패');
+            setEnrichedPlan(plan);
+          }
+        } else {
+          console.log('⚠️ created_from_session_id 없음');
+          setEnrichedPlan(plan);
+        }
+      } catch (error) {
+        console.error('❌ 원본 파라미터 조회 오류:', error);
+        setEnrichedPlan(plan);
+      }
+    };
+
+    enrichPlanWithOriginalParams();
+  }, [plan]);
 
   // 다운로드 처리 함수
   const handleDownload = async () => {
@@ -244,8 +299,8 @@ export default function TravelPlanCard({ plan, onDetailView, onModify, onShare, 
                     {meal.day} {meal.meal}: {meal.restaurant}
                   </span>
                   <span className={`font-medium ${
-                    meal.status.includes('✅') ? 'text-green-600' : 
-                    meal.status.includes('❌') ? 'text-red-600' : 'text-yellow-600'
+                    meal.status.includes('확정') ? 'text-green-600' : 
+                    meal.status.includes('미정') ? 'text-red-600' : 'text-yellow-600'
                   }`}>
                     {meal.status}
                   </span>
@@ -267,12 +322,26 @@ export default function TravelPlanCard({ plan, onDetailView, onModify, onShare, 
             <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
               <DialogHeader>
                 <DialogTitle>{plan.title}</DialogTitle>
+                <DialogDescription>
+                  여행 계획의 상세 일정표를 확인하실 수 있습니다.
+                </DialogDescription>
               </DialogHeader>
-              <TravelPlanTableModal plan={plan} />
+              <TravelPlanTableModal plan={enrichedPlan} />
             </DialogContent>
           </Dialog>
           
-          <Button variant="outline" onClick={onModify} className="flex items-center gap-2">
+          <Button 
+            variant="outline" 
+            onClick={() => {
+              if (onModify) {
+                onModify();
+              } else {
+                console.warn('onModify 핸들러가 정의되지 않았습니다.');
+                alert('수정 기능을 사용할 수 없습니다. 페이지를 새로고침해주세요.');
+              }
+            }} 
+            className="flex items-center gap-2"
+          >
             <Edit className="h-4 w-4" />
             수정하기
           </Button>
@@ -287,7 +356,35 @@ export default function TravelPlanCard({ plan, onDetailView, onModify, onShare, 
             {isDownloading ? '처리중...' : '다운로드'}
           </Button>
           
-          <Button variant="outline" onClick={onShare} className="flex items-center gap-2">
+          <Button 
+            variant="outline" 
+            onClick={() => {
+              if (onShare) {
+                onShare();
+              } else {
+                console.log('📤 기본 공유 기능 사용:', plan.title);
+                
+                // 기본 공유 기능 (웹 Share API 또는 URL 복사)
+                if (navigator.share) {
+                  navigator.share({
+                    title: plan.title,
+                    text: `${plan.title} - ${plan.duration}일 여행 계획`,
+                    url: window.location.href
+                  }).catch((error) => {
+                    console.log('공유 실패:', error);
+                    // 폴백: URL 복사
+                    navigator.clipboard.writeText(window.location.href);
+                    alert('링크가 클립보드에 복사되었습니다!');
+                  });
+                } else {
+                  // 웹 Share API 미지원시 URL 복사
+                  navigator.clipboard.writeText(window.location.href);
+                  alert('링크가 클립보드에 복사되었습니다!');
+                }
+              }
+            }} 
+            className="flex items-center gap-2"
+          >
             <Share2 className="h-4 w-4" />
             공유하기
           </Button>

@@ -2,10 +2,11 @@
 'use client';
 
 import React, { useEffect, useState, useRef } from 'react';
-import { X, Trash2 } from 'lucide-react';
+import { X, Trash2, Map } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import ChatInterface, { ChatInterfaceRef } from './ChatInterface';
 import ClearOptionsModal from './ClearOptionsModal';
+import TravelListModal from './TravelListModal';
 
 interface ChatModalProps {
   onClose: () => void;
@@ -13,6 +14,7 @@ interface ChatModalProps {
 
 export default function ChatModal({ onClose }: ChatModalProps) {
   const [showClearModal, setShowClearModal] = useState(false);
+  const [showTravelListModal, setShowTravelListModal] = useState(false);
   const chatInterfaceRef = useRef<ChatInterfaceRef>(null);
 
   // ESC 키로 모달 닫기
@@ -35,6 +37,16 @@ export default function ChatModal({ onClose }: ChatModalProps) {
         <div className="flex items-center justify-between p-4 border-b">
           <h2 className="text-lg font-semibold text-gray-900">여행 계획 AI 어시스턴트</h2>
           <div className="flex items-center gap-2">
+            {/* 여행 관리 버튼 */}
+            <Button 
+              onClick={() => setShowTravelListModal(true)} 
+              variant="ghost" 
+              size="icon" 
+              className="h-8 w-8 text-gray-500 hover:text-blue-600 hover:bg-blue-50"
+              title="내 여행 관리"
+            >
+              <Map className="h-4 w-4" />
+            </Button>
             {/* Clear 버튼 */}
             <Button 
               onClick={() => setShowClearModal(true)} 
@@ -64,6 +76,12 @@ export default function ChatModal({ onClose }: ChatModalProps) {
         onClose={() => setShowClearModal(false)}
         onClearConversation={() => chatInterfaceRef.current?.clearConversationOnly()}
         onClearAll={() => chatInterfaceRef.current?.clearAllRecords()}
+      />
+
+      {/* Travel List Modal */}
+      <TravelListModal
+        isOpen={showTravelListModal}
+        onClose={() => setShowTravelListModal(false)}
       />
     </div>
   );

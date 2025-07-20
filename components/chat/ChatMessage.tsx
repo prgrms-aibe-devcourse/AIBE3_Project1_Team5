@@ -68,6 +68,44 @@ export default function ChatMessage({ message, onButtonClick, onSettingsUpdate }
                 // TODO: 상세 보기 페이지로 이동
                 console.log('Detail view clicked');
               }}
+              onModify={() => {
+                console.log('🔧 여행 계획 수정 요청:', message.travelPlan.title);
+                
+                // DB에 저장된 여행 계획이면 수정 모달을 열고, 아니면 간단한 에디터 사용
+                if (message.travelPlan.dbPlanId && onSettingsUpdate) {
+                  // DB에 저장된 여행 계획 - 전체 수정 모달 열기
+                  onSettingsUpdate({ 
+                    openEditModal: true, 
+                    travelId: message.travelPlan.dbPlanId 
+                  });
+                } else if (onSettingsUpdate) {
+                  // 임시 여행 계획 - 간단한 에디터 사용
+                  onSettingsUpdate({ showEditor: true });
+                } else {
+                  alert('수정 기능을 사용할 수 없습니다. 페이지를 새로고침해주세요.');
+                }
+              }}
+              onShare={() => {
+                console.log('📤 여행 계획 공유:', message.travelPlan.title);
+                
+                // 공유 기능 구현 (웹 Share API 또는 URL 복사)
+                if (navigator.share) {
+                  navigator.share({
+                    title: message.travelPlan.title,
+                    text: `${message.travelPlan.title} - ${message.travelPlan.duration}일 여행 계획`,
+                    url: window.location.href
+                  }).catch((error) => {
+                    console.log('공유 실패:', error);
+                    // 폴백: URL 복사
+                    navigator.clipboard.writeText(window.location.href);
+                    alert('링크가 클립보드에 복사되었습니다!');
+                  });
+                } else {
+                  // 웹 Share API 미지원시 URL 복사
+                  navigator.clipboard.writeText(window.location.href);
+                  alert('링크가 클립보드에 복사되었습니다!');
+                }
+              }}
             />
           )}
           

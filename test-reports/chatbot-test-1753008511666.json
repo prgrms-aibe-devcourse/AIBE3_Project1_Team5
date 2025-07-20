@@ -1,0 +1,143 @@
+{
+  "timestamp": "2025-07-20T10:48:31.666Z",
+  "results": [
+    {
+      "scenarioName": "여행 계획 시작 - 제주도",
+      "success": false,
+      "actualIntents": [
+        "error",
+        "error",
+        "error",
+        "error",
+        "error",
+        "error",
+        "error"
+      ],
+      "actualResponses": [
+        "API Error",
+        "API Error",
+        "API Error",
+        "API Error",
+        "API Error",
+        "API Error",
+        "API Error"
+      ],
+      "issues": [
+        "Intent mismatch: expected \"travel_start\", got \"error\" for input \"제주도 가고싶어\"",
+        "Poor response quality for \"제주도 가고싶어\": Response too short",
+        "Intent mismatch: expected \"duration_input\", got \"error\" for input \"2박3일\"",
+        "Poor response quality for \"2박3일\": Response too short",
+        "Intent mismatch: expected \"people_input\", got \"error\" for input \"혼자\"",
+        "Poor response quality for \"혼자\": Response too short",
+        "Intent mismatch: expected \"budget_input\", got \"error\" for input \"50만원\"",
+        "Poor response quality for \"50만원\": Response too short",
+        "Intent mismatch: expected \"style_input\", got \"error\" for input \"힐링\"",
+        "Poor response quality for \"힐링\": Response too short",
+        "Intent mismatch: expected \"transport_input\", got \"error\" for input \"비행기\"",
+        "Poor response quality for \"비행기\": Response too short",
+        "Intent mismatch: expected \"accommodation_input\", got \"error\" for input \"호텔\"",
+        "Poor response quality for \"호텔\": Response too short"
+      ],
+      "executionTime": 5400
+    },
+    {
+      "scenarioName": "기록 조회",
+      "success": false,
+      "actualIntents": [
+        "error",
+        "error",
+        "error"
+      ],
+      "actualResponses": [
+        "API Error",
+        "API Error",
+        "API Error"
+      ],
+      "issues": [
+        "Intent mismatch: expected \"travel_query\", got \"error\" for input \"이전 기록 있어?\"",
+        "Poor response quality for \"이전 기록 있어?\": Response too short",
+        "Intent mismatch: expected \"travel_query\", got \"error\" for input \"여행 기록\"",
+        "Poor response quality for \"여행 기록\": Response too short",
+        "Intent mismatch: expected \"travel_query\", got \"error\" for input \"저장된 계획\"",
+        "Poor response quality for \"저장된 계획\": Response too short"
+      ],
+      "executionTime": 2070
+    },
+    {
+      "scenarioName": "일반 대화",
+      "success": false,
+      "actualIntents": [
+        "error",
+        "error",
+        "error"
+      ],
+      "actualResponses": [
+        "API Error",
+        "API Error",
+        "API Error"
+      ],
+      "issues": [
+        "Intent mismatch: expected \"general\", got \"error\" for input \"안녕하세요\"",
+        "Poor response quality for \"안녕하세요\": Response too short",
+        "Intent mismatch: expected \"general\", got \"error\" for input \"오늘 날씨 어때요?\"",
+        "Poor response quality for \"오늘 날씨 어때요?\": Response too short",
+        "Intent mismatch: expected \"general\", got \"error\" for input \"그냥 인사야\"",
+        "Poor response quality for \"그냥 인사야\": Response too short"
+      ],
+      "executionTime": 2069
+    },
+    {
+      "scenarioName": "파라미터 입력 중 진행 상태 확인",
+      "success": false,
+      "actualIntents": [
+        "error",
+        "error",
+        "error"
+      ],
+      "actualResponses": [
+        "API Error",
+        "API Error",
+        "API Error"
+      ],
+      "issues": [
+        "Intent mismatch: expected \"travel_start\", got \"error\" for input \"부산 가고싶어\"",
+        "Poor response quality for \"부산 가고싶어\": Response too short",
+        "Intent mismatch: expected \"duration_input\", got \"error\" for input \"3일\"",
+        "Poor response quality for \"3일\": Response too short",
+        "Intent mismatch: expected \"travel_continue\", got \"error\" for input \"진행중인 계획 있어?\"",
+        "Poor response quality for \"진행중인 계획 있어?\": Response too short"
+      ],
+      "executionTime": 2172
+    },
+    {
+      "scenarioName": "의도 분류 경계 케이스",
+      "success": false,
+      "actualIntents": [
+        "error",
+        "error",
+        "error"
+      ],
+      "actualResponses": [
+        "API Error",
+        "API Error",
+        "API Error"
+      ],
+      "issues": [
+        "Intent mismatch: expected \"general\", got \"error\" for input \"여행 갈까 말까\"",
+        "Poor response quality for \"여행 갈까 말까\": Response too short",
+        "Intent mismatch: expected \"travel_start\", got \"error\" for input \"어디로 갈지 모르겠어\"",
+        "Poor response quality for \"어디로 갈지 모르겠어\": Response too short",
+        "Intent mismatch: expected \"travel_query\", got \"error\" for input \"계획 있었나?\"",
+        "Poor response quality for \"계획 있었나?\": Response too short"
+      ],
+      "executionTime": 2071
+    }
+  ],
+  "summary": {
+    "totalTests": 5,
+    "successfulTests": 0,
+    "failedTests": 5,
+    "averageExecutionTime": 2756.4,
+    "intentAccuracy": 100
+  }
+}

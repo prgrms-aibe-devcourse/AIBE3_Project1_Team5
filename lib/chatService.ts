@@ -18,7 +18,37 @@ export interface ChatMessage {
   created_at: string;
 }
 
+// 세션 캐시 (메모리) - 타임스탬프와 함께 저장
+let sessionCache: { [userId: string]: { session: ChatSession, timestamp: number } } = {};
+const CACHE_DURATION = 5 * 60 * 1000; // 5분
+
 export const chatService = {
+  // 캐시 관리 함수들
+  clearCache(userId?: string) {
+    if (userId) {
+      delete sessionCache[userId];
+      console.log('[chatService] Cache cleared for user:', userId);
+    } else {
+      sessionCache = {};
+      console.log('[chatService] All cache cleared');
+    }
+  },
+
+  isCacheValid(userId: string): boolean {
+    const cached = sessionCache[userId];
+    if (!cached) return false;
+    
+    const now = Date.now();
+    const isValid = (now - cached.timestamp) < CACHE_DURATION;
+    
+    if (!isValid) {
+      delete sessionCache[userId];
+      console.log('[chatService] Cache expired for user:', userId);
+    }
+    
+    return isValid;
+  },
+
   // 세션의 모든 메시지 삭제
   async deleteSessionMessages(sessionId: string): Promise<boolean> {
     try {
@@ -41,8 +71,17 @@ export const chatService = {
 
   // 활성 세션 가져오기 또는 새로 생성
   async getOrCreateActiveSession(userId: string): Promise<ChatSession | null> {
+    console.log('[chatService] getOrCreateActiveSession called for user:', userId);
+    
+    // 캐시된 세션 확인 (유효성 검사 포함)
+    if (this.isCacheValid(userId) && sessionCache[userId].session.is_active) {
+      console.log('[chatService] Returning cached session for user:', userId);
+      return sessionCache[userId].session;
+    }
+    
     try {
       // 먼저 활성 세션이 있는지 확인
+      console.log('[chatService] Checking for existing active session...');
       const { data: existingSession, error: fetchError } = await supabase
         .from('chat_sessions')
         .select('*')
@@ -52,11 +91,20 @@ export const chatService = {
         .limit(1)
         .single();
 
+      console.log('[chatService] Existing session check result:', { existingSession, fetchError });
+
       if (existingSession && !fetchError) {
+        console.log('[chatService] Found existing active session:', existingSession.id);
+        // 세션 캐시에 타임스탬프와 함께 저장
+        sessionCache[userId] = {
+          session: existingSession,
+          timestamp: Date.now()
+        };
         return existingSession;
       }
 
       // 활성 세션이 없으면 새로 생성
+      console.log('[chatService] No active session found, creating new one...');
       const { data: newSession, error: createError } = await supabase
         .from('chat_sessions')
         .insert({
@@ -68,13 +116,19 @@ export const chatService = {
         .single();
 
       if (createError) {
-        console.error('Error creating session:', createError);
+        console.error('[chatService] Error creating session:', createError);
         return null;
       }
 
+      console.log('[chatService] New session created:', newSession);
+      // 새 세션 캐시에 타임스탬프와 함께 저장
+      sessionCache[userId] = {
+        session: newSession,
+        timestamp: Date.now()
+      };
       return newSession;
     } catch (error) {
-      console.error('Error in getOrCreateActiveSession:', error);
+      console.error('[chatService] Error in getOrCreateActiveSession:', error);
       return null;
     }
   },
@@ -164,11 +218,24 @@ export const chatService = {
         return false;
       }
 
+      // 캐시에서 해당 세션 제거
+      Object.keys(sessionCache).forEach(userId => {
+        if (sessionCache[userId].id === sessionId) {
+          delete sessionCache[userId];
+        }
+      });
+
       return true;
     } catch (error) {
       console.error('Error in endSession:', error);
       return false;
     }
+  },
+
+  // 캐시 정리 (필요시 호출)
+  clearCache(): void {
+    sessionCache = {};
+    console.log('[chatService] Session cache cleared');
   },
 
   // 사용자의 모든 세션 가져오기
