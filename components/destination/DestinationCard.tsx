@@ -21,7 +21,7 @@ const DestinationCard = React.memo(
 
     const totalCost = calculateTotalCost(destination);
     const budgetCategory = getBudgetCategory(totalCost);
-    const isPopular = (destination.view_count || 0) > POPULAR_THRESHOLD;
+    const isPopular = (destination.review_count || 0) > POPULAR_THRESHOLD;
 
     return (
       <Card
@@ -81,8 +81,8 @@ const DestinationCard = React.memo(
 
           <div className="absolute bottom-4 left-4 bg-white/90 rounded-full px-2 py-1 flex items-center">
             <Star className="h-4 w-4 text-yellow-400 fill-current mr-1" />
-            <span className="text-sm font-medium">{destination.rating_num || 0}</span>
-            <span className="text-xs text-gray-500 ml-1">({destination.view_count || 0})</span>
+            <span className="text-sm font-medium">{destination.avg_score || 0}</span>
+            <span className="text-xs text-gray-500 ml-1">({destination.review_count || 0})</span>
           </div>
         </div>
 

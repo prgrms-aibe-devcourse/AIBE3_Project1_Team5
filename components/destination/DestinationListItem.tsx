@@ -16,7 +16,7 @@ interface DestinationListItemProps {
 const DestinationListItem = React.memo(
   ({ destination, isFavorite, onToggleFavorite }: DestinationListItemProps) => {
     const totalCost = calculateTotalCost(destination);
-    const isPopular = (destination.view_count || 0) > POPULAR_THRESHOLD;
+    const isPopular = (destination.review_count || 0) > POPULAR_THRESHOLD;
 
     return (
       <Card className="overflow-hidden hover:shadow-lg transition-shadow cursor-pointer">
@@ -48,8 +48,8 @@ const DestinationListItem = React.memo(
               <div className="flex items-center space-x-4">
                 <div className="flex items-center">
                   <Star className="h-4 w-4 text-yellow-400 fill-current mr-1" />
-                  <span className="font-medium">{destination.rating_num || 0}</span>
-                  <span className="text-gray-500 ml-1">({destination.view_count || 0})</span>
+                  <span className="font-medium">{destination.avg_score || 0}</span>
+                  <span className="text-gray-500 ml-1">({destination.review_count || 0})</span>
                 </div>
                 <Button
                   size="sm"
