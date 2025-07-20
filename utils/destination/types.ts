@@ -6,8 +6,6 @@ export interface Destination {
   region: string;
   description?: string;
   image_url?: string;
-  rating_num?: number; // 기존 평점 (별개로 유지 가능)
-  view_count?: number;
   cost_flight?: number;
   cost_hotel_per_night?: number;
   cost_meal_per_day?: number;
