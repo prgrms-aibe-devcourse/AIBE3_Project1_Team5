@@ -41,7 +41,7 @@ export const useDestinationFilters = (destinations: Destination[]) => {
         filters.selectedBudget === '전체' || budgetCategory === filters.selectedBudget;
 
       const matchesPopular =
-        !filters.showPopularOnly || (destination.view_count || 0) > POPULAR_THRESHOLD;
+        !filters.showPopularOnly || (destination.review_count || 0) > POPULAR_THRESHOLD;
 
       return matchesSearch && matchesRegion && matchesBudget && matchesPopular;
     });

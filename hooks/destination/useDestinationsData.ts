@@ -16,12 +16,12 @@ export const useDestinationsData = () => {
         .from('travels')
         .select(
           `
-          id, name_kr, name_en, country, region, description, image_url, rating_num, view_count,
+          id, name_kr, name_en, country, region, description, image_url, avg_score, review_count,
           cost_flight, cost_hotel_per_night, cost_meal_per_day, cost_sightseeing_per_day,
           tips, best_time, weather_spring, weather_summer, weather_autumn, weather_winter
         `
         )
-        .order('view_count', { ascending: false });
+        .order('review_count', { ascending: false });
 
       if (supabaseError) {
         console.error('Supabase 에러:', supabaseError);
