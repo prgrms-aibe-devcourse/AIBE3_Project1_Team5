@@ -32,12 +32,13 @@ interface SearchAndFilterProps {
 
 const REGIONS = [
   '전체',
+  '한국',
   '동아시아',
   '동남아시아',
   '유럽',
+  '중앙아시아',
   '북미',
   '남미',
-  '오세아니아',
   '아프리카',
   '중동',
 ];

@@ -22,6 +22,11 @@ export default function Navigation() {
   const pathname = usePathname();
   const { user, signOut, profile, isLoading } = useAuth();
 
+  const handleLogout = async () => {
+    await signOut();
+  };
+
+  
   // 로딩 중일 때 스켈레톤 UI 표시
   if (isLoading) {
     return (
