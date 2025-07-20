@@ -40,8 +40,8 @@ export default function Navigation() {
                 <Image
                   src="/logo.png"
                   alt="HOOLJJEOK Logo"
-                  width={110}
-                  height={90}
+                  width={120}
+                  height={100}
                   className="transition-all duration-300 group-hover:brightness-110"
                 />
               </div>
@@ -89,8 +89,8 @@ export default function Navigation() {
               <Image
                 src="/logo.png"
                 alt="HOOLJJEOK Logo"
-                width={90}
-                height={70}
+                width={120}
+                height={100}
                 className="transition-all duration-300 group-hover:brightness-110"
               />
             </div>
