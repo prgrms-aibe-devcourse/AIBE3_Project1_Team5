@@ -2,6 +2,7 @@ import { useState, useMemo, useCallback } from 'react';
 import { calculateTotalCost, getBudgetCategory, POPULAR_THRESHOLD } from '@/utils/destination/destinationUtils'; // 유틸리티 함수 임포트
 import { Destination, FilterState } from '@/utils/destination/types'; 
 
+
 export const useDestinationFilters = (destinations: Destination[]) => {
   const [filters, setFilters] = useState<FilterState>({
     searchQuery: '',
@@ -41,7 +42,7 @@ export const useDestinationFilters = (destinations: Destination[]) => {
         filters.selectedBudget === '전체' || budgetCategory === filters.selectedBudget;
 
       const matchesPopular =
-        !filters.showPopularOnly || (destination.review_count || 0) > POPULAR_THRESHOLD;
+        !filters.showPopularOnly || destination.is_popular === true; // is_popular가 true인 경우에만 일치
 
       return matchesSearch && matchesRegion && matchesBudget && matchesPopular;
     });
