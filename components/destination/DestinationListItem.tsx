@@ -16,7 +16,7 @@ interface DestinationListItemProps {
 const DestinationListItem = React.memo(
   ({ destination, isFavorite, onToggleFavorite }: DestinationListItemProps) => {
     const totalCost = calculateTotalCost(destination);
-    const isPopular = (destination.review_count || 0) > POPULAR_THRESHOLD;
+    const isPopular = (destination.is_popular === true);
 
     return (
       <Card className="overflow-hidden hover:shadow-lg transition-shadow cursor-pointer">

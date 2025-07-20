@@ -21,7 +21,7 @@ const DestinationCard = React.memo(
 
     const totalCost = calculateTotalCost(destination);
     const budgetCategory = getBudgetCategory(totalCost);
-    const isPopular = (destination.review_count || 0) > POPULAR_THRESHOLD;
+    const isPopular = (destination.is_popular === true);
 
     return (
       <Card

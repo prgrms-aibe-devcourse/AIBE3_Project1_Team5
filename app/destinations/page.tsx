@@ -14,7 +14,7 @@ import DestinationResultsInfo from '@/components/destination/DestinationResultsI
 import DestinationNoResults from '@/components/destination/DestinationNoResults';
 import { useDestinationsData } from '@/hooks/destination/useDestinationsData';
 import { useDestinationFilters } from '@/hooks/destination/useDestinationFilters';
-import { Destination } from '@/utils/destination/types'; // 타입 정의 파일 필요
+import { Destination } from '@/utils/destination/types'; 
 
 export default function DestinationsPage() {
   const { destinations, loading, error, fetchDestinations } = useDestinationsData();
