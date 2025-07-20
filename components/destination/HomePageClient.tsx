@@ -7,7 +7,7 @@ import Link from 'next/link';
 import SearchForm from '@/components/destination/SearchForm';
 import DestinationCard from '@/components/home/DestinationCard';
 import { Destination } from '@/utils/destination/types';
-import { useAuth } from '@/app/providers/AuthProvider'; // AuthProvider에서 useAuth 훅 임포트
+import { useAuth } from '@/app/providers/AuthProvider'; 
 
 interface HomePageClientProps {
   destinations: Destination[];
@@ -30,10 +30,10 @@ export default function HomePageClient({ destinations }: HomePageClientProps) {
       {user ? (
         // 사용자가 로그인했을 때 보여줄 UI
         <>
-          {/* Hero Section - 로그인 사용자용 */}
+          {/* Section - 로그인 사용자용 */}
           <section className="relative py-20 px-4">
             <div className="max-w-6xl mx-auto text-center">
-              <h1 className="text-5xl font-bold text-gray-900 mb-6">환영합니다, {profile?.name || user.email}!</h1>
+              <h1 className="text-5xl font-bold text-gray-900 mb-6">환영합니다, {profile?.name || user.email}님!</h1>
               <p className="text-xl text-gray-600 mb-8 max-w-2xl mx-auto">
                 AI가 도와주는 맞춤형 여행 계획으로 특별한 추억을 만들어보세요
               </p>
@@ -60,9 +60,25 @@ export default function HomePageClient({ destinations }: HomePageClientProps) {
                     <Star className="h-4 w-4 mr-2" />
                     인기 여행지
                   </Button>
-                </Link>
+                </Link> 
               </div>
             </div>
+            {/* Recent Plans Section - 로그인 사용자만 */}
+{user && (
+  <section className="py-12 px-4 bg-blue-50">
+    <div className="max-w-6xl mx-auto">
+      <div className="flex justify-between items-center mb-8">
+        <h2 className="text-2xl font-bold text-gray-900">최근 여행 계획</h2>
+        <Link href="/planner" className="text-blue-600 hover:text-blue-800 font-medium">
+          모두 보기 →
+        </Link>
+      </div>
+      <div className="bg-white rounded-lg p-6 shadow-sm">
+        <p className="text-gray-500 text-center">아직 여행 계획이 없습니다. 첫 번째 여행을 계획해보세요!</p>
+      </div>
+    </div>
+  </section>
+)}
           </section>
 
           {/* Popular Destinations - 서버에서 렌더링된 데이터 */}
