@@ -4,7 +4,7 @@ import { useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { usePathname } from 'next/navigation';
-import { Menu, X, Home, MessageCircle, Star, Calendar, MapPin } from 'lucide-react';
+import { Menu, X, Home, MessageCircle, Star, Calendar, MapPin} from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/app/providers/AuthProvider';
 
@@ -28,13 +28,24 @@ export default function Navigation() {
         <div className="max-w-6xl mx-auto px-4">
           <div className="flex justify-between items-center h-16">
             {/* Logo */}
-            <Link href="/" className="flex items-center space-x-2">
-              <div className="bg-blue-600 rounded-lg p-2">
-                <Calendar className="h-6 w-6 text-white" />
-              </div>
-              <Image src="/logo.png"  alt="HOOLJJEOK Logo" width={90} height={70} />
-              {/* <span className="text-xl font-bold text-gray-900">HOOLJJEOK</span> */}
-            </Link>
+            <Link href="/" className="flex items-center space-x-4 group">
+  <div className="relative">
+    <div className="absolute inset-0 bg-blue-600 rounded-2xl blur opacity-25 group-hover:opacity-40 transition-opacity duration-300"></div>
+    <div className="relative bg-white border border-blue-100 rounded-2xl p-3 shadow-sm group-hover:shadow-md transition-all duration-300">
+      <MapPin className="h-6 w-6 text-blue-600" />
+    </div>
+  </div>
+  <div className="flex flex-col">
+    <Image 
+      src="/logo.png" 
+      alt="HOOLJJEOK Logo" 
+      width={110} 
+      height={90}
+      className="transition-all duration-300 group-hover:brightness-110"
+    />
+  </div>
+</Link>
+
 
             {/* Desktop Navigation Skeleton */}
             <div className="hidden md:flex items-center space-x-8">
@@ -67,14 +78,23 @@ export default function Navigation() {
       <div className="max-w-6xl mx-auto px-4">
         <div className="flex justify-between items-center h-16">
           {/* Logo */}
-          <Link href="/" className="flex items-center space-x-2">
-            <div className="bg-blue-600 rounded-lg p-2">
-              <Calendar className="h-6 w-6 text-white" />
-            </div>
-            <Image src="/logo.png"  alt="HOOLJJEOK Logo" width={110} height={90} />
-
-            {/* <span className="text-xl font-bold text-gray-900">HOOLJJEOK</span> */}
-          </Link>
+          <Link href="/" className="flex items-center space-x-4 group">
+  <div className="relative">
+    <div className="absolute inset-0 bg-blue-600 rounded-2xl blur opacity-25 group-hover:opacity-40 transition-opacity duration-300"></div>
+    <div className="relative bg-white border border-blue-100 rounded-2xl p-3 shadow-sm group-hover:shadow-md transition-all duration-300">
+      <MapPin className="h-6 w-6 text-blue-600" />
+    </div>
+  </div>
+  <div className="flex flex-col">
+    <Image 
+      src="/logo.png" 
+      alt="HOOLJJEOK Logo" 
+      width={90} 
+      height={70}
+      className="transition-all duration-300 group-hover:brightness-110"
+    />
+  </div>
+</Link>
 
           {/* Desktop Navigation */}
           <div className="hidden md:flex items-center space-x-8">
