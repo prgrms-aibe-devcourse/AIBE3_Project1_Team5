@@ -8,6 +8,7 @@ import SearchForm from '@/components/destination/SearchForm';
 import DestinationCard from '@/components/home/DestinationCard';
 import { Destination } from '@/utils/destination/types';
 import { useAuth } from '@/app/providers/AuthProvider'; 
+import RecentTravelPlans from '@/components/home/RecentTravelPlans';
 
 interface HomePageClientProps {
   destinations: Destination[];
@@ -63,22 +64,11 @@ export default function HomePageClient({ destinations }: HomePageClientProps) {
                 </Link> 
               </div>
             </div>
-            {/* Recent Plans Section - 로그인 사용자만 */}
-{user && (
-  <section className="py-12 px-4 bg-blue-50">
-    <div className="max-w-6xl mx-auto">
-      <div className="flex justify-between items-center mb-8">
-        <h2 className="text-2xl font-bold text-gray-900">최근 여행 계획</h2>
-        <Link href="/planner" className="text-blue-600 hover:text-blue-800 font-medium">
-          모두 보기 →
-        </Link>
-      </div>
-      <div className="bg-white rounded-lg p-6 shadow-sm">
-        <p className="text-gray-500 text-center">아직 여행 계획이 없습니다. 첫 번째 여행을 계획해보세요!</p>
-      </div>
-    </div>
-  </section>
-)}
+         {/* ⭐️ Recent Plans Section - 로그인 사용자만 (Client Component) */}
+      <RecentTravelPlans />
+
+      {/* Popular Destinations - 서버에서 렌더링된 데이터 */}
+      
           </section>
 
           {/* Popular Destinations - 서버에서 렌더링된 데이터 */}
