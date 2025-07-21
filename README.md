@@ -45,7 +45,7 @@
 ## 🔧 기술 스택
 - **Frontend**: Next.js 14, React, TypeScript, Tailwind CSS
 - **Backend/DB**: Supabase (PostgreSQL, Auth, Storage)
-- **디자인/생성 툴**: Erdcloud, V0
+- **디자인/생성 툴**: ERDCloud, V0
 - **협업/관리**: Git, GitHub, Notion
 
 ## 🧩 ERD
