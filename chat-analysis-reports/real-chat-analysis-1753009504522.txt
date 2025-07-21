@@ -1,0 +1,42 @@
+
+📊 REAL CHAT ANALYSIS REPORT
+════════════════════════════════════════════════════════
+
+📈 OVERVIEW:
+   💬 Total Sessions: 5
+   📝 Total Messages: 48
+   📊 Avg Messages per Session: 9.6
+
+📉 SESSION LENGTH DISTRIBUTION:
+   🔸 Short (≤3 msgs): 3 (60%)
+   🔸 Medium (4-10 msgs): 1 (20%)
+   🔸 Long (11+ msgs): 1 (20%)
+
+🚨 USER ABANDONMENT PATTERNS:
+   • 그만: 0 times
+     Examples: 
+   • 혼란/불만: 0 times
+     Examples: 
+   • 반복 질문 포기: 2 times
+     Examples: 계속 진행, 계속 진행
+
+🔄 REPEATED QUESTIONS (Top 5):
+   • "며칠 동안 여행하실 예정인가요? (예: 3박 4일, 1주일 등)..." (5 times)
+   • "혹시 제가 놓친 부분이 있나요? 더 구체적으로 어떤 도움이 필요하신지 알려주시면 더 정확히 도와드릴 수 있어요...." (3 times)
+
+❌ ERROR PATTERNS (Top 10):
+
+
+📝 COMMON USER INPUTS (Top 10):
+   • "2일..." (5 times)
+   • "안녕..." (3 times)
+   • "1박2일..." (3 times)
+   • "계속 진행..." (2 times)
+
+💡 IMMEDIATE ACTION ITEMS:
+   ❗ High abandonment rate - improve first response quality
+   ✅ Question variety looks good
+   ✅ Error rate acceptable
+
+════════════════════════════════════════════════════════
+Report generated: 2025-07-20T11:05:04.518Z

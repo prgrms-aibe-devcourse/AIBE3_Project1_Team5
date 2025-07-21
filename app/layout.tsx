@@ -5,6 +5,7 @@ import './globals.css';
 import Navigation from './components/Navigation';
 import { AuthProvider } from './providers/AuthProvider';
 import FloatingChat from '@/components/chat/FloatingChat';
+import ErrorBoundary from '@/components/ErrorBoundary';
 
 const inter = Inter({ subsets: ['latin'] });
 
@@ -18,6 +19,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="ko">
       <body className={inter.className}>
+        <ErrorBoundary />
         <AuthProvider>
           <Navigation />
           {children}

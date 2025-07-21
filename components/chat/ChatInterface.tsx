@@ -1,16 +1,86 @@
 // components/chat/ChatInterface.tsx
 'use client';
 
-import React, { useRef, useEffect } from 'react';
+import React, { useRef, useEffect, forwardRef, useImperativeHandle, useMemo, useState } from 'react';
 import ChatMessage from './ChatMessage';
 import ChatInput from './ChatInput';
+import TravelEditModal from './TravelEditModal';
 import { useChat } from '@/hooks/useChat';
 import { useAuth } from '@/app/providers/AuthProvider';
 
-export default function ChatInterface() {
+export interface ChatInterfaceRef {
+  clearConversationOnly: () => Promise<void>;
+  clearAllRecords: () => Promise<void>;
+}
+
+const ChatInterface = forwardRef<ChatInterfaceRef>((props, ref) => {
   const { user, isLoading: authLoading } = useAuth();
-  const { messages, isLoading, isInitializing, sendMessage } = useChat();
+  const { messages, isLoading, isInitializing, sendMessage, clearConversationOnly, clearAllRecords } = useChat();
   const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  // 사용자 ID 메모이제이션으로 불필요한 re-render 방지
+  const userId = useMemo(() => user?.id, [user?.id]);
+  const isUserReady = useMemo(() => Boolean(userId), [userId]);
+
+  // 여행 수정 모달 상태
+  const [editingTravelId, setEditingTravelId] = useState<string | null>(null);
+
+  useImperativeHandle(ref, () => ({
+    clearConversationOnly,
+    clearAllRecords,
+  }), [clearConversationOnly, clearAllRecords]);
+  
+  // 버튼 클릭 핸들러
+  const handleSettingButtonClick = (action: 'keep' | 'reset' | 'partial') => {
+    switch (action) {
+      case 'keep':
+        sendMessage('네, 그대로 해주세요');
+        break;
+      case 'reset':
+        sendMessage('다시 설정할게요');
+        break;
+      case 'partial':
+        sendMessage('일부만 바꿀게요');
+        break;
+    }
+  };
+  
+  // 설정 업데이트 핸들러
+  const handleSettingsUpdate = (settings: any) => {
+    // 수정 모드 요청인지 확인
+    if (settings.showEditor) {
+      // 여행 계획 수정 메시지 전송
+      sendMessage('일부만 바꿀게요');
+      return;
+    }
+
+    // 여행 수정 모달 요청인지 확인
+    if (settings.openEditModal && settings.travelId) {
+      setEditingTravelId(settings.travelId);
+      return;
+    }
+    
+    if (Object.keys(settings).length > 0) {
+      // 변경된 설정을 메시지로 전송
+      const changedItems = Object.entries(settings)
+        .map(([key, value]) => {
+          const keyMap: any = {
+            duration: '기간',
+            peopleCount: '인원',
+            budget: '예산',
+            travelStyle: '여행스타일',
+            transportation: '교통수단',
+            accommodation: '숙박'
+          };
+          return `${keyMap[key]}: ${value}`;
+        })
+        .join(', ');
+      
+      sendMessage(`설정 변경: ${changedItems}`);
+    } else {
+      sendMessage('설정 변경을 취소했습니다.');
+    }
+  };
 
   // 새 메시지 추가시 스크롤 하단으로 이동
   const scrollToBottom = () => {
@@ -22,7 +92,7 @@ export default function ChatInterface() {
   }, [messages]);
 
   const handleSendMessage = async (content: string) => {
-    if (!user) {
+    if (!isUserReady) {
       alert('로그인이 필요한 서비스입니다.');
       return;
     }
@@ -32,14 +102,30 @@ export default function ChatInterface() {
   // 인증 로딩 중
   if (authLoading || isInitializing) {
     return (
-      <div className="flex items-center justify-center h-full">
-        <div className="text-gray-500">로딩 중...</div>
+      <div className="flex flex-col items-center justify-center h-full p-8">
+        <div className="flex space-x-1 mb-4">
+          <div className="w-3 h-3 bg-blue-500 rounded-full animate-bounce"></div>
+          <div 
+            className="w-3 h-3 bg-blue-500 rounded-full animate-bounce"
+            style={{ animationDelay: '0.1s' }}
+          ></div>
+          <div 
+            className="w-3 h-3 bg-blue-500 rounded-full animate-bounce"
+            style={{ animationDelay: '0.2s' }}
+          ></div>
+        </div>
+        <div className="text-gray-600 text-sm">
+          {authLoading ? '인증 확인 중...' : '채팅 초기화 중...'}
+        </div>
+        <div className="text-gray-400 text-xs mt-2">
+          잠시만 기다려주세요
+        </div>
       </div>
     );
   }
 
   // 미인증 사용자
-  if (!user) {
+  if (!isUserReady) {
     return (
       <div className="flex flex-col items-center justify-center h-full p-8 text-center">
         <div className="mb-4">
@@ -78,7 +164,12 @@ export default function ChatInterface() {
       {/* 메시지 영역 */}
       <div className="flex-1 overflow-y-auto p-4 space-y-4">
         {messages.map((message) => (
-          <ChatMessage key={message.id} message={message} />
+          <ChatMessage 
+            key={message.id} 
+            message={message} 
+            onButtonClick={handleSettingButtonClick}
+            onSettingsUpdate={handleSettingsUpdate}
+          />
         ))}
         {isLoading && (
           <div className="flex justify-start">
@@ -104,6 +195,24 @@ export default function ChatInterface() {
       <div className="border-t p-4">
         <ChatInput onSendMessage={handleSendMessage} disabled={isLoading} />
       </div>
+
+      {/* 여행 수정 모달 */}
+      {editingTravelId && (
+        <TravelEditModal
+          isOpen={!!editingTravelId}
+          onClose={() => setEditingTravelId(null)}
+          travelId={editingTravelId}
+          onUpdate={() => {
+            setEditingTravelId(null);
+            // 채팅에서 업데이트 완료 메시지 전송 (선택사항)
+            // sendMessage('여행 계획이 수정되었습니다.');
+          }}
+        />
+      )}
     </div>
   );
-}
+});
+
+ChatInterface.displayName = 'ChatInterface';
+
+export default ChatInterface;

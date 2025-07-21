@@ -39,3 +39,13 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# development files
+test_issue*.md
+*_work_history_*.md
+*.backup
+*.local.md
+chat-analysis-reports/
+test-reports/
+cleanup-*.sql
+*duplicate*.sql

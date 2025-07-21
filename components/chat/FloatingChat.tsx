@@ -1,16 +1,31 @@
 // components/chat/FloatingChat.tsx
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { MessageCircle, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import ChatModal from './ChatModal';
 
 export default function FloatingChat() {
   const [isOpen, setIsOpen] = useState(false);
+  const [isClient, setIsClient] = useState(false);
+
+  useEffect(() => {
+    setIsClient(true);
+  }, []);
+
+  // 클라이언트에서만 렌더링
+  if (!isClient) {
+    return null;
+  }
 
   const toggleChat = () => {
-    setIsOpen(!isOpen);
+    try {
+      setIsOpen(!isOpen);
+    } catch (error) {
+      // 컴포넌트가 언마운트된 상태에서 상태 업데이트 시도 시 에러 방지
+      console.warn('FloatingChat toggle failed:', error);
+    }
   };
 
   return (
