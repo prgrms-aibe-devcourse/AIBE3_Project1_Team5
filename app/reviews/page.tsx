@@ -125,6 +125,8 @@ export default function ReviewsPage() {
   const [searchField, setSearchField] = useState<'destination' | 'author' | 'content'>('content');
 
   const [filteredReviews, setFilteredReviews] = useState<Review[]>([]);
+  const [currentPage, setCurrentPage] = useState(1);
+  const REVIEWS_PER_PAGE = 10;
 
   useEffect(() => {
     setFilteredReviews(reviews);
@@ -142,6 +144,7 @@ export default function ReviewsPage() {
     e.preventDefault();
     if (!searchQuery.trim()) {
       setFilteredReviews(reviews);
+      setCurrentPage(1);
       return;
     }
     const query = searchQuery.trim().toLowerCase();
@@ -160,6 +163,7 @@ export default function ReviewsPage() {
       result = reviews.filter((review) => review.content.toLowerCase().includes(query));
     }
     setFilteredReviews(result);
+    setCurrentPage(1);
   };
 
   // 후기 수정 함수
@@ -300,7 +304,7 @@ export default function ReviewsPage() {
       alert('후기 수정이 완료되었습니다.');
 
       // 후기 목록 새로고침
-      await fetchReviews(currentPage);
+      await fetchReviews();
 
       // 수정 모드 종료
       setEditingReviewId(null);
@@ -316,15 +320,10 @@ export default function ReviewsPage() {
     }
   };
 
-  const REVIEWS_PER_PAGE = 10;
-  const [currentPage, setCurrentPage] = useState(1);
-  const [totalCount, setTotalCount] = useState(0);
-
-  const fetchReviews = async (page: number) => {
+  // 전체 리뷰 데이터를 받아오도록 fetchReviews 수정
+  const fetchReviews = async () => {
     setIsLoading(true);
-    const from = (page - 1) * REVIEWS_PER_PAGE;
-    const to = from + REVIEWS_PER_PAGE - 1;
-    const { data, error, count } = await supabase
+    const { data, error } = await supabase
       .from('review')
       .select(
         `
@@ -339,10 +338,8 @@ export default function ReviewsPage() {
         review_img(
           img_url
         )
-      `,
-        { count: 'exact' }
+      `
       )
-      .range(from, to)
       .order('created_at', { ascending: false });
     if (error) {
       alert('리뷰 데이터를 불러오지 못했습니다.');
@@ -351,15 +348,27 @@ export default function ReviewsPage() {
     }
     setReviews(data || []);
     setFilteredReviews(data || []);
-    setTotalCount(count || 0);
     setIsLoading(false);
   };
 
+  // 최초 마운트 시 전체 리뷰 불러오기
   useEffect(() => {
-    fetchReviews(currentPage);
-  }, [currentPage]);
+    fetchReviews();
+  }, []);
 
-  const totalPages = Math.ceil(totalCount / REVIEWS_PER_PAGE);
+  // 페이지네이션 적용된 데이터 계산
+  const paginatedReviews = filteredReviews.slice(
+    (currentPage - 1) * REVIEWS_PER_PAGE,
+    currentPage * REVIEWS_PER_PAGE
+  );
+  const totalPages = Math.ceil(filteredReviews.length / REVIEWS_PER_PAGE);
+
+  // 검색 결과가 적어서 currentPage가 totalPages보다 클 때 자동으로 1페이지로 이동
+  useEffect(() => {
+    if (currentPage > totalPages && totalPages > 0) {
+      setCurrentPage(1);
+    }
+  }, [filteredReviews, totalPages]);
 
   // 후기 삭제 함수
   const handleDeleteReview = async (reviewId: string) => {
@@ -413,7 +422,7 @@ export default function ReviewsPage() {
 
       alert('후기가 성공적으로 삭제되었습니다.');
       // 후기 목록 새로고침
-      await fetchReviews(currentPage);
+      await fetchReviews();
     } catch (error) {
       alert('후기 삭제 중 오류가 발생했습니다.');
       console.error('Delete error:', error);
@@ -520,12 +529,7 @@ export default function ReviewsPage() {
       alert('후기 등록 성공');
 
       // 후기 목록 새로고침
-      try {
-        await fetchReviews(currentPage);
-      } catch (error) {
-        console.error('후기 목록 새로고침 실패:', error);
-        // 새로고침 실패해도 폼은 초기화
-      }
+      await fetchReviews();
 
       // 폼 초기화
       setContent('');
@@ -629,7 +633,7 @@ export default function ReviewsPage() {
 
         {/* 후기 리스트 */}
         <ReviewList
-          reviews={filteredReviews}
+          reviews={paginatedReviews}
           userNames={userNames}
           editingReviewId={editingReviewId}
           myUserId={user?.id}
