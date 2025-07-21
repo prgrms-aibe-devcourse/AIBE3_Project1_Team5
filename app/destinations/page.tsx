@@ -14,12 +14,13 @@ import DestinationResultsInfo from '@/components/destination/DestinationResultsI
 import DestinationNoResults from '@/components/destination/DestinationNoResults';
 import { useDestinationsData } from '@/hooks/destination/useDestinationsData';
 import { useDestinationFilters } from '@/hooks/destination/useDestinationFilters';
-import { Destination } from '@/utils/destination/types'; 
+import { Destination } from '@/utils/destination/types';
 
 export default function DestinationsPage() {
   const { destinations, loading, error, fetchDestinations } = useDestinationsData();
-  const { filters, handleFilterChange, resetFilters, filteredDestinations } = useDestinationFilters(destinations);
-  
+  const { filters, handleFilterChange, resetFilters, filteredDestinations } =
+    useDestinationFilters(destinations);
+
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [favorites, setFavorites] = useState<string[]>([]);
   const router = useRouter();
@@ -112,7 +113,9 @@ export default function DestinationsPage() {
           </TabsContent>
         </Tabs>
 
-        {filteredDestinations.length === 0 && <DestinationNoResults onResetFilters={resetFilters} />}
+        {filteredDestinations.length === 0 && (
+          <DestinationNoResults onResetFilters={resetFilters} />
+        )}
       </div>
     </div>
   );
