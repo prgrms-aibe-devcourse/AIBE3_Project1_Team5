@@ -1,21 +1,21 @@
-"use client"
-import { Button } from "@/components/ui/button"
-import { Plus, Route, EyeOff, Eraser, Map } from "lucide-react"
-import { ActivityInputCard } from "./activity-input-card"
-import type { Activity } from "@/lib/trip-utils"
+'use client';
+import { Button } from '@/components/ui/button';
+import { Plus, Route, EyeOff, Eraser, Map } from 'lucide-react';
+import { ActivityInputCard } from './activity-input-card';
+import type { Activity } from '@/lib/trip-utils';
 
 interface TimelineDayCardProps {
-  dateStr: string
-  dayIdx: number
-  activities: Activity[]
-  isRouteSelected: boolean
-  dayMarkers: Array<{ id: string; lat: number; lng: number; label: string }>
-  onDrawRoute: (date: string) => void
-  onClearRoute: () => void
-  onClearAllMarkers: () => void
-  onAddActivity: (date: string) => void
-  onActivityChange: (id: string, field: string, value: any) => void
-  onDeleteActivity: (id: string) => void
+  dateStr: string;
+  dayIdx: number;
+  activities: Activity[];
+  isRouteSelected: boolean;
+  dayMarkers: Array<{ id: string; lat: number; lng: number; label: string }>;
+  onDrawRoute: (date: string) => void;
+  onClearRoute: () => void;
+  onClearAllMarkers: () => void;
+  onAddActivity: (date: string) => void;
+  onActivityChange: (id: string, field: string, value: any) => void;
+  onDeleteActivity: (id: string) => void;
 }
 
 export function TimelineDayCard({
@@ -34,12 +34,14 @@ export function TimelineDayCard({
   const sortedActivities = activities
     .filter((a) => a.date === dateStr)
     .sort((a: Activity, b: Activity) => {
-      const timeA =
-        (a.time_ampm === "PM" && a.time_hour !== 12 ? a.time_hour + 12 : a.time_hour || 0) * 60 + (a.time_minute || 0)
-      const timeB =
-        (b.time_ampm === "PM" && b.time_hour !== 12 ? b.time_hour + 12 : b.time_hour || 0) * 60 + (b.time_minute || 0)
-      return timeA - timeB
-    })
+      const hourA = a.time_hour ?? 0;
+      const minuteA = a.time_minute ?? 0;
+      const timeA = (a.time_ampm === 'PM' && hourA !== 12 ? hourA + 12 : hourA) * 60 + minuteA;
+      const hourB = b.time_hour ?? 0;
+      const minuteB = b.time_minute ?? 0;
+      const timeB = (b.time_ampm === 'PM' && hourB !== 12 ? hourB + 12 : hourB) * 60 + minuteB;
+      return timeA - timeB;
+    });
 
   return (
     <div className="border border-blue-200 rounded-xl p-5 bg-blue-50 shadow-sm">
@@ -96,5 +98,5 @@ export function TimelineDayCard({
         )}
       </div>
     </div>
-  )
+  );
 }
