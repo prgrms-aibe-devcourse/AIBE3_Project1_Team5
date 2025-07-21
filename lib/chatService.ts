@@ -27,10 +27,8 @@ export const chatService = {
   clearCache(userId?: string) {
     if (userId) {
       delete sessionCache[userId];
-      console.log('[chatService] Cache cleared for user:', userId);
     } else {
       sessionCache = {};
-      console.log('[chatService] All cache cleared');
     }
   },
 
@@ -43,7 +41,6 @@ export const chatService = {
     
     if (!isValid) {
       delete sessionCache[userId];
-      console.log('[chatService] Cache expired for user:', userId);
     }
     
     return isValid;
@@ -71,17 +68,14 @@ export const chatService = {
 
   // 활성 세션 가져오기 또는 새로 생성
   async getOrCreateActiveSession(userId: string): Promise<ChatSession | null> {
-    console.log('[chatService] getOrCreateActiveSession called for user:', userId);
     
     // 캐시된 세션 확인 (유효성 검사 포함)
     if (this.isCacheValid(userId) && sessionCache[userId].session.is_active) {
-      console.log('[chatService] Returning cached session for user:', userId);
       return sessionCache[userId].session;
     }
     
     try {
       // 먼저 활성 세션이 있는지 확인
-      console.log('[chatService] Checking for existing active session...');
       const { data: existingSession, error: fetchError } = await supabase
         .from('chat_sessions')
         .select('*')
@@ -91,10 +85,8 @@ export const chatService = {
         .limit(1)
         .single();
 
-      console.log('[chatService] Existing session check result:', { existingSession, fetchError });
 
       if (existingSession && !fetchError) {
-        console.log('[chatService] Found existing active session:', existingSession.id);
         // 세션 캐시에 타임스탬프와 함께 저장
         sessionCache[userId] = {
           session: existingSession,
@@ -104,7 +96,6 @@ export const chatService = {
       }
 
       // 활성 세션이 없으면 새로 생성
-      console.log('[chatService] No active session found, creating new one...');
       const { data: newSession, error: createError } = await supabase
         .from('chat_sessions')
         .insert({
@@ -120,7 +111,6 @@ export const chatService = {
         return null;
       }
 
-      console.log('[chatService] New session created:', newSession);
       // 새 세션 캐시에 타임스탬프와 함께 저장
       sessionCache[userId] = {
         session: newSession,
@@ -235,7 +225,6 @@ export const chatService = {
   // 캐시 정리 (필요시 호출)
   clearCache(): void {
     sessionCache = {};
-    console.log('[chatService] Session cache cleared');
   },
 
   // 사용자의 모든 세션 가져오기

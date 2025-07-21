@@ -36,11 +36,9 @@ export default function TravelPlanCard({ plan, onDetailView, onModify, onShare, 
         // created_from_session_id가 있으면 해당 세션의 파라미터 조회
         const planWithSessionId = plan as any;
         if (planWithSessionId.created_from_session_id) {
-          console.log('🔍 원본 파라미터 조회 시작:', planWithSessionId.created_from_session_id);
           const sessionParams = await travelPlanService.getSessionParameters(planWithSessionId.created_from_session_id);
           
           if (sessionParams) {
-            console.log('📋 조회된 세션 파라미터:', sessionParams);
             const originalParams = {
               title: sessionParams.title,
               destination: sessionParams.destination,
@@ -57,14 +55,11 @@ export default function TravelPlanCard({ plan, onDetailView, onModify, onShare, 
               originalParams
             };
             
-            console.log('✅ 원본 파라미터 병합 완료:', enriched);
             setEnrichedPlan(enriched);
           } else {
-            console.log('⚠️ 세션 파라미터 조회 실패');
             setEnrichedPlan(plan);
           }
         } else {
-          console.log('⚠️ created_from_session_id 없음');
           setEnrichedPlan(plan);
         }
       } catch (error) {
@@ -362,7 +357,6 @@ export default function TravelPlanCard({ plan, onDetailView, onModify, onShare, 
               if (onShare) {
                 onShare();
               } else {
-                console.log('📤 기본 공유 기능 사용:', plan.title);
                 
                 // 기본 공유 기능 (웹 Share API 또는 URL 복사)
                 if (navigator.share) {
@@ -371,7 +365,6 @@ export default function TravelPlanCard({ plan, onDetailView, onModify, onShare, 
                     text: `${plan.title} - ${plan.duration}일 여행 계획`,
                     url: window.location.href
                   }).catch((error) => {
-                    console.log('공유 실패:', error);
                     // 폴백: URL 복사
                     navigator.clipboard.writeText(window.location.href);
                     alert('링크가 클립보드에 복사되었습니다!');

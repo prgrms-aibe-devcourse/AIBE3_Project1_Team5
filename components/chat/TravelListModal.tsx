@@ -49,7 +49,6 @@ function EnrichedTravelPlanTableModal({ dbPlan }: { dbPlan: TravelPlanDB }) {
   useEffect(() => {
     const enrichPlan = async () => {
       try {
-        console.log('🔍 리스트에서 원본 파라미터 조회 시작:', dbPlan.created_from_session_id);
         
         // 기본 plan 변환
         let plan = convertDBToTravelPlan(dbPlan);
@@ -59,7 +58,6 @@ function EnrichedTravelPlanTableModal({ dbPlan }: { dbPlan: TravelPlanDB }) {
           const sessionParams = await travelPlanService.getSessionParameters(dbPlan.created_from_session_id);
           
           if (sessionParams) {
-            console.log('📋 리스트에서 조회된 세션 파라미터:', sessionParams);
             plan = {
               ...plan,
               originalParams: {
@@ -75,12 +73,9 @@ function EnrichedTravelPlanTableModal({ dbPlan }: { dbPlan: TravelPlanDB }) {
                 accommodation: sessionParams.accommodation
               }
             };
-            console.log('✅ 리스트에서 원본 파라미터 병합 완료');
           } else {
-            console.log('⚠️ 리스트에서 세션 파라미터 조회 실패');
           }
         } else {
-          console.log('⚠️ 리스트에서 created_from_session_id 없음');
         }
         
         setEnrichedPlan(plan);
@@ -140,7 +135,6 @@ export default function TravelListModal({ isOpen, onClose }: TravelListModalProp
   // 여행 목록 로드
   useEffect(() => {
     if (isOpen && user) {
-      console.log('🔄 TravelListModal - Loading travels for user:', user.id);
       loadTravels();
     }
   }, [isOpen, user?.id]); // user 대신 user.id 사용
@@ -157,11 +151,9 @@ export default function TravelListModal({ isOpen, onClose }: TravelListModalProp
   const loadTravels = useCallback(async () => {
     if (!user) return;
     
-    console.log('🔍 Starting to load travels...');
     setIsLoading(true);
     try {
       const userTravels = await travelPlanService.getUserTravelPlans(user.id);
-      console.log('Loaded travels:', userTravels.length);
       setTravels(userTravels);
     } catch (error) {
       console.error('❌ Failed to load travels:', error);
@@ -253,7 +245,7 @@ export default function TravelListModal({ isOpen, onClose }: TravelListModalProp
               transportation: sessionParams.transportation,
               accommodation: sessionParams.accommodation
             }
-          };
+          } as any;
         }
       }
       

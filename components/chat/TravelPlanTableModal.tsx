@@ -9,8 +9,6 @@ interface TravelPlanTableModalProps {
 
 export default function TravelPlanTableModal({ plan }: TravelPlanTableModalProps) {
   // 디버깅: 전달받은 plan 객체 확인
-  console.log('🔍 TravelPlanTableModal - 전달받은 plan:', plan);
-  console.log('🔍 TravelPlanTableModal - plan.overview:', plan.overview);
   
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('ko-KR', {
@@ -38,9 +36,7 @@ export default function TravelPlanTableModal({ plan }: TravelPlanTableModalProps
     }
     
     // overview가 없으면 원본 파라미터나 plan의 다른 데이터로부터 생성
-    console.log('⚠️ overview 데이터 없음, 대체 데이터 생성');
     const originalParams = (plan as any).originalParams;
-    console.log('📋 원본 파라미터:', originalParams);
     
     return {
       dates: plan.startDate && plan.endDate 

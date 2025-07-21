@@ -66,10 +66,8 @@ export default function ChatMessage({ message, onButtonClick, onSettingsUpdate }
               plan={message.travelPlan} 
               onDetailView={() => {
                 // TODO: 상세 보기 페이지로 이동
-                console.log('Detail view clicked');
               }}
               onModify={() => {
-                console.log('🔧 여행 계획 수정 요청:', message.travelPlan.title);
                 
                 // DB에 저장된 여행 계획이면 수정 모달을 열고, 아니면 간단한 에디터 사용
                 if (message.travelPlan.dbPlanId && onSettingsUpdate) {
@@ -86,7 +84,6 @@ export default function ChatMessage({ message, onButtonClick, onSettingsUpdate }
                 }
               }}
               onShare={() => {
-                console.log('📤 여행 계획 공유:', message.travelPlan.title);
                 
                 // 공유 기능 구현 (웹 Share API 또는 URL 복사)
                 if (navigator.share) {
@@ -95,7 +92,6 @@ export default function ChatMessage({ message, onButtonClick, onSettingsUpdate }
                     text: `${message.travelPlan.title} - ${message.travelPlan.duration}일 여행 계획`,
                     url: window.location.href
                   }).catch((error) => {
-                    console.log('공유 실패:', error);
                     // 폴백: URL 복사
                     navigator.clipboard.writeText(window.location.href);
                     alert('링크가 클립보드에 복사되었습니다!');

@@ -51,22 +51,21 @@ export const travelPlanService = {
     try {
       // 현재 인증된 사용자 확인
       const { data: { user } } = await supabase.auth.getUser();
-      console.log('🔐 현재 인증 사용자:', user?.id || 'NULL');
-      console.log('🔐 세션 ID:', sessionId);
       
-      // 타임아웃 설정 (12초 - useChat의 15초보다 짧게)
-      const timeoutPromise = new Promise<never>((_, reject) => 
-        setTimeout(() => reject(new Error('Timeout: getSessionParameters took too long')), 12000)
-      );
+      if (!user?.id) {
+        console.error('❌ 인증된 사용자가 없습니다');
+        return null;
+      }
       
-      const queryPromise = supabase
+      // 단순 쿼리 실행 (타임아웃 제거)
+      const { data, error } = await supabase
         .from('session_parameters')
         .select('*')
         .eq('chat_session_id', sessionId)
-        .limit(1);
-
-      const { data, error } = await Promise.race([queryPromise, timeoutPromise]);
-
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      
       if (error) {
         console.error('❌ Error fetching session parameters:', error);
         console.error('Error details:', { 
@@ -75,64 +74,21 @@ export const travelPlanService = {
           hint: error.hint,
           sessionId 
         });
-        
-        // 406 에러나 기타 권한 관련 에러인 경우 특별 처리
-        if (error.message?.includes('406') || error.code === 'PGRST406' || 
-            error.message?.includes('Not Acceptable') || error.code?.includes('406')) {
-          console.error('🚨 RLS 정책 또는 권한 문제 - 빈 파라미터로 계속 진행');
-          return {
-            id: 'temp-' + Date.now(),
-            chat_session_id: sessionId,
-            user_id: user?.id || '',
-            collection_status: 'incomplete' as const,
-            missing_params: ['title', 'destination', 'startDate', 'endDate', 'peopleCount', 'budget', 'travelStyle', 'transportation', 'accommodation'],
-            created_at: new Date().toISOString(),
-            updated_at: new Date().toISOString()
-          };
-        }
-        
         return null;
       }
-
-      // limit(1) 사용 시 배열로 반환되므로 첫 번째 요소 추출
-      const result = Array.isArray(data) ? data[0] : data;
       
-      if (!result) {
-        console.log('📋 세션 파라미터 없음 (새 세션)');
+      if (!data) {
         return null;
       }
-
+      
       // collection_status가 undefined인 경우 기본값 설정
-      if (!result.collection_status) {
-        result.collection_status = 'incomplete';
+      if (!data.collection_status) {
+        data.collection_status = 'incomplete';
       }
-
-      console.log('✅ 세션 파라미터 조회 성공:', result);
-      return result;
+      
+      return data;
     } catch (error) {
       console.error('❌ Error in getSessionParameters:', error);
-      
-      // 타임아웃이나 기타 에러 시에도 빈 파라미터 반환
-      if (error.message?.includes('Timeout') || error.message?.includes('406') || 
-          error.message?.includes('Not Acceptable')) {
-        console.error('🚨 타임아웃 또는 406 에러 - 빈 파라미터로 계속 진행');
-        try {
-          const { data: { user } } = await supabase.auth.getUser();
-          return {
-            id: 'temp-' + Date.now(),
-            chat_session_id: sessionId,
-            user_id: user?.id || '',
-            collection_status: 'incomplete' as const,
-            missing_params: ['title', 'destination', 'startDate', 'endDate', 'peopleCount', 'budget', 'travelStyle', 'transportation', 'accommodation'],
-            created_at: new Date().toISOString(),
-            updated_at: new Date().toISOString()
-          };
-        } catch (authError) {
-          console.error('❌ 인증 에러도 발생:', authError);
-          return null;
-        }
-      }
-      
       return null;
     }
   },
@@ -146,44 +102,60 @@ export const travelPlanService = {
     try {
       // 현재 인증된 사용자 확인
       const { data: { user } } = await supabase.auth.getUser();
-      console.log('🔐 createOrUpdate - 인증 사용자:', user?.id || 'NULL');
-      console.log('🔐 createOrUpdate - 전달받은 userId:', userId);
       
       const collectionStatus = missingParams.length === 0 ? 'complete' : 'incomplete';
 
-      const { data: existing, error: fetchError } = await supabase
+      // 중복 row 문제 해결: 먼저 모든 row 확인
+      const { data: allExisting, error: fetchAllError } = await supabase
         .from('session_parameters')
-        .select('*')  // 모든 필드를 가져와서 병합
+        .select('*')
         .eq('chat_session_id', sessionId)
-        .single();
+        .order('created_at', { ascending: false });
       
-      // 404 에러는 무시 (데이터가 없는 경우)
-      if (fetchError && fetchError.code !== 'PGRST116') {
-        console.error('Error fetching existing session parameters:', fetchError);
+      if (fetchAllError) {
+        console.error('Error fetching existing session parameters:', fetchAllError);
       }
+      
+      // 중복 row가 있으면 정리
+      if (allExisting && allExisting.length > 1) {
+        const idsToDelete = allExisting.slice(1).map(row => row.id);
+        const { error: deleteError } = await supabase
+          .from('session_parameters')
+          .delete()
+          .in('id', idsToDelete);
+        
+        if (deleteError) {
+          console.error('❌ 중복 row 삭제 실패:', deleteError);
+        } else {
+        }
+      }
+      
+      const existing = allExisting && allExisting.length > 0 ? allExisting[0] : null;
 
       if (existing) {
         // Update existing - 기존 데이터와 병합
-        console.log('📝 기존 데이터:', existing);
-        console.log('📝 새로운 파라미터:', params);
+        
+        // 업데이트할 데이터 준비 (DB 필드명 직접 사용)
+        const updateData = {
+          title: params.title !== undefined ? params.title : existing.title,
+          destination: params.destination !== undefined ? params.destination : existing.destination,
+          start_date: params.start_date !== undefined ? params.start_date : existing.start_date,
+          end_date: params.end_date !== undefined ? params.end_date : existing.end_date,
+          duration: params.duration !== undefined ? params.duration : existing.duration,
+          people_count: params.people_count !== undefined ? params.people_count : existing.people_count,
+          budget: params.budget !== undefined ? params.budget : existing.budget,
+          transportation: params.transportation !== undefined ? params.transportation : existing.transportation,
+          accommodation: params.accommodation !== undefined ? params.accommodation : existing.accommodation,
+          travel_style: params.travel_style !== undefined ? params.travel_style : existing.travel_style,
+          missing_params: missingParams,
+          collection_status: collectionStatus,
+          updated_at: new Date().toISOString()
+        };
+        
         
         const { data, error } = await supabase
           .from('session_parameters')
-          .update({
-            title: params.title !== undefined ? params.title : existing.title,
-            destination: params.destination !== undefined ? params.destination : existing.destination,
-            start_date: params.startDate !== undefined ? params.startDate : existing.start_date,
-            end_date: params.endDate !== undefined ? params.endDate : existing.end_date,
-            duration: params.duration !== undefined ? params.duration : existing.duration,
-            people_count: params.peopleCount !== undefined ? params.peopleCount : (params.people_count !== undefined ? params.people_count : existing.people_count),
-            budget: params.budget !== undefined ? params.budget : existing.budget,
-            transportation: params.transportation !== undefined ? params.transportation : existing.transportation,
-            accommodation: params.accommodation !== undefined ? params.accommodation : existing.accommodation,
-            travel_style: params.travelStyle !== undefined ? params.travelStyle : (params.travel_style !== undefined ? params.travel_style : existing.travel_style),
-            missing_params: missingParams,
-            collection_status: collectionStatus,
-            updated_at: new Date().toISOString()
-          })
+          .update(updateData)
           .eq('chat_session_id', sessionId)
           .select()
           .single();
@@ -196,7 +168,6 @@ export const travelPlanService = {
         return data;
       } else {
         // Create new
-        console.log('🆕 새로운 세션 파라미터 생성');
         const { data, error } = await supabase
           .from('session_parameters')
           .insert({
@@ -204,14 +175,14 @@ export const travelPlanService = {
             user_id: userId,
             title: params.title,
             destination: params.destination,
-            start_date: params.startDate,
-            end_date: params.endDate,
+            start_date: params.start_date,
+            end_date: params.end_date,
             duration: params.duration,
-            people_count: params.peopleCount || params.people_count,
+            people_count: params.people_count,
             budget: params.budget,
             transportation: params.transportation,
             accommodation: params.accommodation,
-            travel_style: params.travelStyle || params.travel_style,
+            travel_style: params.travel_style,
             missing_params: missingParams,
             collection_status: collectionStatus,
             created_at: new Date().toISOString(),
@@ -248,14 +219,14 @@ export const travelPlanService = {
           created_from_session_id: sessionId,
           title: plan.title,
           destination: plan.destination,
-          start_date: plan.startDate,
-          end_date: plan.endDate,
+          start_date: plan.start_date,
+          end_date: plan.end_date,
           duration: plan.duration,
-          people_count: params.peopleCount || 1,
+          people_count: params.people_count || 1,
           budget: params.budget,
           transportation: params.transportation,
           accommodation: params.accommodation,
-          travel_style: params.travelStyle,
+          travel_style: params.travel_style,
           schedule: plan.schedule,
           ai_metadata: {
             tips: plan.tips,
@@ -363,6 +334,150 @@ export const travelPlanService = {
       return true;
     } catch (error) {
       console.error('Error in deleteSessionParameters:', error);
+      return false;
+    }
+  },
+
+  // Session Parameters 초기화 (모든 기록 지우기용)
+  async resetSessionParameters(sessionId: string, userId?: string): Promise<boolean> {
+    try {
+      
+      // userId가 제공되지 않은 경우 인증된 사용자에서 가져오기
+      let targetUserId = userId;
+      if (!targetUserId) {
+        const { data: { user }, error: authError } = await supabase.auth.getUser();
+        targetUserId = user?.id;
+      }
+      
+      if (!targetUserId) {
+        console.error('❌ User ID를 찾을 수 없습니다');
+        return false;
+      }
+      
+      
+      // 먼저 기존 row가 있는지 확인
+      const { data: existingRow, error: checkError } = await supabase
+        .from('session_parameters')
+        .select('*')
+        .eq('chat_session_id', sessionId)
+        .maybeSingle();
+      
+      
+      // UPSERT 데이터 준비
+      const upsertData = {
+        chat_session_id: sessionId,
+        user_id: targetUserId,
+        title: null,
+        destination: null,
+        start_date: null,
+        end_date: null,
+        people_count: null,
+        budget: null,
+        travel_style: null,
+        transportation: null,
+        accommodation: null,
+        duration: null,
+        collection_status: 'incomplete' as const,
+        missing_params: ['title', 'destination', 'start_date', 'end_date', 'people_count', 'budget', 'travel_style', 'transportation', 'accommodation'],
+        updated_at: new Date().toISOString()
+        // created_at은 UPSERT 시 자동 처리되도록 제외
+      };
+      
+      
+      // UPSERT: row가 있으면 UPDATE, 없으면 INSERT
+      const { data, error } = await supabase
+        .from('session_parameters')
+        .upsert(upsertData, {
+          onConflict: 'chat_session_id'
+        })
+        .select(); // 결과 데이터도 반환받기
+
+
+      if (error) {
+        console.error('❌ Error resetting session parameters:', error);
+        console.error('❌ Error details:', {
+          code: error.code,
+          message: error.message,
+          details: error.details,
+          hint: error.hint
+        });
+        
+        // UPSERT 실패 시 기존 row 확인 후 처리
+        try {
+          // 중복 row 정리: 가장 최근 것만 남기고 삭제
+          const { data: allRows, error: fetchAllError } = await supabase
+            .from('session_parameters')
+            .select('id, created_at')
+            .eq('chat_session_id', sessionId)
+            .order('created_at', { ascending: false });
+          
+          if (!fetchAllError && allRows && allRows.length > 1) {
+            // 첫 번째(최신)를 제외한 나머지 삭제
+            const idsToDelete = allRows.slice(1).map(row => row.id);
+            const { error: deleteError } = await supabase
+              .from('session_parameters')
+              .delete()
+              .in('id', idsToDelete);
+            
+            if (deleteError) {
+              console.error('❌ 중복 row 삭제 실패:', deleteError);
+            } else {
+                }
+          }
+          
+          // 이제 UPDATE 시도
+          if (allRows && allRows.length > 0) {
+            const { data: updateData, error: updateError } = await supabase
+              .from('session_parameters')
+              .update(upsertData)
+              .eq('chat_session_id', sessionId)
+              .select();
+            
+            if (!updateError) {
+              return true;
+            }
+          }
+          
+          // UPDATE 실패하면 INSERT 시도
+          const { data: insertData, error: insertError } = await supabase
+            .from('session_parameters')
+            .insert({
+              chat_session_id: sessionId,
+              user_id: targetUserId,
+              collection_status: 'incomplete',
+              missing_params: ['title', 'destination', 'start_date', 'end_date', 'people_count', 'budget', 'travel_style', 'transportation', 'accommodation']
+            })
+            .select();
+          
+          if (insertError) {
+            console.error('❌ Direct INSERT also failed:', insertError);
+            return false;
+          } else {
+            return true;
+          }
+        } catch (insertCatchError) {
+          console.error('❌ Exception during fallback processing:', insertCatchError);
+          return false;
+        }
+      }
+
+      
+      // 실제로 row가 생성되었는지 확인
+      const { data: verifyData, error: verifyError } = await supabase
+        .from('session_parameters')
+        .select('id, chat_session_id')
+        .eq('chat_session_id', sessionId)
+        .maybeSingle();
+      
+      if (verifyData) {
+      } else {
+        console.error('❌ Row 생성 확인 실패:', verifyError);
+      }
+      
+      return true;
+    } catch (error) {
+      console.error('❌ Error in resetSessionParameters:', error);
+      console.error('❌ Error stack:', error instanceof Error ? error.stack : String(error));
       return false;
     }
   },

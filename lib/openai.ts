@@ -3,21 +3,21 @@ import OpenAI from 'openai';
 // OpenAI 클라이언트 초기화
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
-  timeout: 120000, // 120초 타임아웃
+  timeout: 180000, // 180초 타임아웃 (3분)
 });
 
-// 여행 파라미터 인터페이스
+// 여행 파라미터 인터페이스 (DB 필드명으로 통일)
 export interface TravelParameters {
   title?: string;
   destination?: string;
-  startDate?: string;  // 여행 시작일 (YYYY-MM-DD)
-  endDate?: string;    // 여행 종료일 (YYYY-MM-DD)
+  start_date?: string;  // 여행 시작일 (YYYY-MM-DD)
+  end_date?: string;    // 여행 종료일 (YYYY-MM-DD)
   duration?: number;   // 자동 계산된 기간 (일수) - 하위 호환성을 위해 유지
-  peopleCount?: number;
+  people_count?: number;
   budget?: number;
   transportation?: string;
   accommodation?: string;
-  travelStyle?: string;
+  travel_style?: string;
   collection_status?: 'incomplete' | 'complete' | 'awaiting_confirmation';
 }
 
@@ -201,12 +201,12 @@ You are a travel planning assistant. Extract travel parameters from the user's m
 Extract the following information:
 - title (REQUIRED): Travel title/name given by user (examples: "오사카 맛집 탐방", "제주도 힐링 여행", "유럽 배낭여행")
 - destination (REQUIRED): The specific place they want to visit
-- startDate (REQUIRED): Travel start date in YYYY-MM-DD format (Korean dates like "7월 25일", "8월 3일" should be converted to 2025-07-25, 2025-08-03)
-- endDate (REQUIRED): Travel end date in YYYY-MM-DD format (Korean dates like "7월 28일", "8월 7일" should be converted to 2025-07-28, 2025-08-07)
+- start_date (REQUIRED): Travel start date in YYYY-MM-DD format (Korean dates like "7월 25일", "8월 3일" should be converted to 2025-07-25, 2025-08-03)
+- end_date (REQUIRED): Travel end date in YYYY-MM-DD format (Korean dates like "7월 28일", "8월 7일" should be converted to 2025-07-28, 2025-08-07)
 - duration: Automatically calculated from start and end dates (for compatibility)
-- peopleCount (REQUIRED): Number of travelers (Korean formats like "2명", "세명", "혼자" should be converted: 혼자=1, 둘=2, 세명=3)
+- people_count (REQUIRED): Number of travelers (Korean formats like "2명", "세명", "혼자" should be converted: 혼자=1, 둘=2, 세명=3)
 - budget (REQUIRED): Total budget in KRW or specified currency (must be specific amount)
-- travelStyle (REQUIRED): Travel style preference (luxury, budget, adventure, cultural, family, romantic, business, etc.)
+- travel_style (REQUIRED): Travel style preference (luxury, budget, adventure, cultural, family, romantic, business, etc.)
 - transportation (REQUIRED): Preferred transportation mode (flight, train, car, bus, etc.)
 - accommodation (REQUIRED): Preferred accommodation type (hotel, hostel, airbnb, resort, guesthouse, etc.)
 
@@ -215,24 +215,28 @@ DESTINATION CHANGE DETECTION:
 - Examples of destination change: "일본 대신 제주도로", "파리 말고 런던으로", "도쿄에서 오사카로 변경"
 
 CONVERSATIONAL CONTEXT RULES:
-1. ALL 9 required parameters must be present to mark as complete (title, destination, startDate, endDate, peopleCount, budget, travelStyle, transportation, accommodation)
+1. ALL 8 required parameters must be present to mark as complete (title, destination, start_date, end_date, people_count, budget, travel_style, transportation, accommodation)
 2. USE CONTEXT: If AI just asked for title and user responds with "대구여행", extract it as title
-3. Title: Accept ANY user input including simple ones like "대구여행", "제주도", "오사카 여행"
-4. Destination must be specific (not just "Europe" or "Asia")
-5. StartDate must be a specific date (not "sometime next week")
-6. EndDate must be a specific date (not "a few days later")
-7. PeopleCount must be a specific number (not "some friends")
-8. Budget must have a specific amount (not "reasonable" or "cheap")
-9. TravelStyle: Accept ANY travel style description as-is - VERY IMPORTANT: Even unusual or creative travel styles like "격투여행", "음악여행", "카페투어" should be recognized as valid travel styles
-10. Transportation: Accept ANY transportation method as-is - do NOT convert (비행기, KTX, 지하철, etc.)
-11. Accommodation: Accept ANY accommodation type as-is - do NOT convert (호텔, 펜션, 에어비앤비, etc.)
+3. **CRITICAL - FIRST DATE RULE**: If NO start_date exists and user provides a date, it MUST be start_date (NEVER end_date)
+4. **CRITICAL - SECOND DATE RULE**: If start_date already exists and user provides another date, treat the new date as end_date
+5. **CRITICAL - PRESERVE DATES**: When extracting parameters, if there's already a start_date="2025-07-25" and user says "7월28일", set end_date="2025-07-28" and keep start_date unchanged.
+5. Title: Accept ANY user input including simple ones like "대구여행", "제주도", "오사카 여행"
+6. Destination must be specific (not just "Europe" or "Asia")
+7. StartDate must be a specific date (not "sometime next week")
+8. EndDate must be a specific date (not "a few days later")
+9. PeopleCount must be a specific number (not "some friends")
+10. Budget must have a specific amount (not "reasonable" or "cheap")
+11. TravelStyle: Accept ANY travel style description as-is - VERY IMPORTANT: Even unusual or creative travel styles like "격투여행", "음악여행", "카페투어" should be recognized as valid travel styles
+12. Transportation: Accept ANY transportation method as-is - do NOT convert (비행기, KTX, 지하철, etc.)
+13. Accommodation: Accept ANY accommodation type as-is - do NOT convert (호텔, 펜션, 에어비앤비, etc.)
 
 CRITICAL: If user says "대구 여행일정" or similar, do NOT extract both title and destination. Only extract what they explicitly provided as an answer to a specific question.
 
 Examples of Korean expressions to recognize:
-- Start Date: "7월 25일" → startDate: "2025-07-25", "8월 3일" → startDate: "2025-08-03", "내일" → startDate: "2025-07-21", "다음주" → startDate: "2025-07-27"
-- End Date: "7월 28일" → endDate: "2025-07-28", "8월 7일" → endDate: "2025-08-07", "2일 후" → endDate: "2025-07-23", "일주일 후" → endDate: "2025-07-28"
-- People: "2명" → peopleCount: 2, "혼자" → peopleCount: 1, "둘이서" → peopleCount: 2, "세명" → peopleCount: 3
+- Start Date: "7월 25일" → start_date: "2025-07-25", "8월 3일" → start_date: "2025-08-03", "내일" → start_date: "2025-07-22", "다음주" → start_date: "2025-07-28"
+- End Date: "7월 28일" → end_date: "2025-07-28", "8월 7일" → end_date: "2025-08-07", "2일 후" → end_date: "2025-07-24", "일주일 후" → end_date: "2025-07-29"
+- IMPORTANT: Do NOT try to parse date ranges like "7월25일부터 7월27일까지" - extract only individual dates
+- People: "2명" → people_count: 2, "혼자" → people_count: 1, "둘이서" → people_count: 2, "세명" → people_count: 3
 - Budget: "100만원" → budget: 1000000, "50만원" → budget: 500000, "200만원" → budget: 2000000
 - TravelStyle: Accept any travel style description as-is, including creative/unusual styles (여유로운 휴양, 카페투어, 격투여행, 음악여행, 액티비티, 문화탐방, 휴식, 힐링, etc.)
 - Transportation: Accept any transportation method as-is (비행기, 기차, 자동차, 버스, KTX, 지하철, etc.)
@@ -266,11 +270,11 @@ Generate only one question, make it friendly and conversational.
 Examples:
 - For title: "이번 여행의 제목을 입력해주세요 (예: 오사카 맛집 탐방, 제주도 힐링 여행, 유럽 배낭여행)"
 - For destination: "어느 도시나 지역을 방문하고 싶으신가요?"
-- For startDate: "여행 시작일은 언제인가요? (예: 7월 25일, 8월 3일, 내일, 다음주 등)"
-- For endDate: "여행 종료일은 언제인가요? (예: 7월 28일, 8월 7일, 3일 후 등)"
-- For peopleCount: "몇 명이서 함께 여행하시나요?"
+- For start_date: "여행 시작일은 언제인가요? (예: 7월 25일, 8월 3일, 내일, 다음주 등)"
+- For end_date: "여행 종료일은 언제인가요? (예: 7월 28일, 8월 7일, 3일 후 등)"
+- For people_count: "몇 명이서 함께 여행하시나요?"
 - For budget: "여행 예산은 얼마나 생각하고 계신가요? (예: 100만원, 500만원 등)"
-- For travelStyle: "어떤 스타일의 여행을 원하시나요?\n1. 여유로운 휴양\n2. 액티비티 중심\n3. 문화 탐방\n4. 카페/맛집 투어\n5. 쇼핑 중심\n6. 로맨틱\n7. 자연/힐링\n8. 기타 (직접 입력)"
+- For travel_style: "어떤 스타일의 여행을 원하시나요?\n1. 여유로운 휴양\n2. 액티비티 중심\n3. 문화 탐방\n4. 카페/맛집 투어\n5. 쇼핑 중심\n6. 로맨틱\n7. 자연/힐링\n8. 기타 (직접 입력)"
 - For transportation: "어떤 교통수단을 이용하고 싶으신가요?\n1. 비행기\n2. 기차\n3. 자동차\n4. 버스\n5. 기타 (직접 입력)"
 - For accommodation: "어떤 숙박시설을 선호하시나요?\n1. 호텔\n2. 게스트하우스\n3. 에어비앤비\n4. 리조트\n5. 펜션\n6. 기타 (직접 입력)"
 
@@ -322,6 +326,8 @@ Examples:
 You are an expert travel planner with extensive knowledge of global destinations. Create a detailed travel itinerary in KOREAN language based on the following parameters:
 
 Destination: {DESTINATION}
+Start Date: {START_DATE}
+End Date: {END_DATE}
 Duration: {DURATION} days
 People: {PEOPLE_COUNT}
 Budget: {BUDGET}
@@ -343,18 +349,22 @@ Create a realistic and practical travel plan considering:
 
 IMPORTANT: 
 - Respond in KOREAN language. All text fields must be in Korean.
+- CRITICAL: Use the EXACT start and end dates provided: {START_DATE} to {END_DATE}
+- The itinerary MUST include every single day from {START_DATE} to {END_DATE} (inclusive)
+- Ignore the duration number if it conflicts with the actual date range
 - Use REAL, SPECIFIC names of restaurants, cafes, attractions, and accommodations
 - Provide REALISTIC costs and timing
 - Include confirmation status: 확정 (confirmed), 미정 (not decided), 예정 (planned)
 - Format as a comprehensive table-style itinerary
+- Every day from {START_DATE} to {END_DATE} must have a detailed schedule
 
 Return a JSON object with this structure:
 {
   "title": "{목적지} {기간} {여행스타일} 플랜 (날짜 / {인원} 기준)",
   "destination": "구체적인 목적지",
   "duration": number,
-  "startDate": "2025-06-05",
-  "endDate": "2025-06-06", 
+  "startDate": "{START_DATE}",
+  "endDate": "{END_DATE}", 
   "totalBudget": estimated total cost in KRW,
   "currency": "KRW",
   "overview": {
@@ -520,9 +530,34 @@ export async function extractTravelParameters(
   try {
     let systemPrompt = PROMPTS.extractParameters;
     
-    // 기존 파라미터가 있으면 목적지 변경 감지를 위해 추가 정보 제공
-    if (existingParams?.destination) {
-      systemPrompt += `\n\nEXISTING DESTINATION: ${existingParams.destination}\nDetect if the user wants to change to a different destination.`;
+    // 기존 파라미터가 있으면 컨텍스트 정보 제공
+    if (existingParams) {
+      systemPrompt += `\n\nEXISTING PARAMETERS:`;
+      if (existingParams.destination) systemPrompt += `\n- destination: ${existingParams.destination}`;
+      if (existingParams.start_date) systemPrompt += `\n- start_date: ${existingParams.start_date} (ALREADY SET - do not overwrite)`;
+      if (existingParams.end_date) systemPrompt += `\n- end_date: ${existingParams.end_date} (ALREADY SET - do not overwrite)`;
+      if (existingParams.people_count) systemPrompt += `\n- people_count: ${existingParams.people_count}`;
+      if (existingParams.budget) systemPrompt += `\n- budget: ${existingParams.budget}`;
+      if (existingParams.travel_style) systemPrompt += `\n- travel_style: ${existingParams.travel_style}`;
+      if (existingParams.transportation) systemPrompt += `\n- transportation: ${existingParams.transportation}`;
+      if (existingParams.accommodation) systemPrompt += `\n- accommodation: ${existingParams.accommodation}`;
+      
+      systemPrompt += `\n\n🚨 CRITICAL INSTRUCTION: 
+- DO NOT extract parameters that are already set above
+- If start_date exists and user provides another date, it must be end_date (NEVER overwrite start_date)
+- If end_date exists and user provides another date, it must be for changing end_date (NEVER touch start_date)
+- PRESERVE all existing parameter values exactly as they are
+
+SPECIFIC DATE HANDLING RULES:
+- If start_date is already set to "${existingParams.start_date}", and user provides a date:
+  → Extract it as end_date, NOT start_date
+  → Do NOT include start_date in your response at all
+- First date input → start_date
+- Second date input (when start_date exists) → end_date`;
+      
+      if (existingParams.destination) {
+        systemPrompt += `\nDetect if the user wants to change to a different destination.`;
+      }
     }
 
     // 대화 맥락 구성 (최근 10개 메시지)
@@ -557,25 +592,67 @@ export async function extractTravelParameters(
     }
 
     // OpenAI 응답 원본 로깅 (디버깅용)
-    console.log('🤖 OpenAI extractParameters 원본 응답:', result);
-    console.log('🎯 입력 메시지:', userMessage);
 
     const parsedResult = JSON.parse(result);
-    console.log('📊 파싱된 결과:', parsedResult);
     
     // 백업 로직: OpenAI가 도시명을 놓쳤을 때 키워드 기반으로 보완
     const enhancedResult = enhanceParameterExtraction(userMessage, parsedResult, existingParams);
-    console.log('🔧 백업 로직 적용 후:', enhancedResult);
+    
+    // 날짜 처리 단순화: 순차적 입력만 허용
+    const dateProtectedResult = dateHandling(enhancedResult, existingParams);
     
     // 날짜 파싱 및 기간 자동 계산
-    const dateProcessedResult = processDateParameters(enhancedResult);
-    console.log('📅 날짜 처리 후:', dateProcessedResult);
+    const dateProcessedResult = processDateParameters(dateProtectedResult);
     
     return dateProcessedResult;
   } catch (error) {
     console.error('Error extracting parameters:', error);
     throw error;
   }
+}
+
+
+// 단순화된 날짜 처리 함수
+function dateHandling(result: any, existingParams?: any): any {
+  if (!result || !result.collectedParams) {
+    return result;
+  }
+
+  const protectedResult = { ...result };
+  const existingStartDate = existingParams?.start_date;
+  const existingEndDate = existingParams?.end_date;
+  
+  
+  // 🚨 CRITICAL: OpenAI가 첫 번째 날짜를 end_date로 잘못 추출한 경우 수정
+  if (!existingStartDate && !existingEndDate && !result.collectedParams.start_date && result.collectedParams.end_date) {
+    protectedResult.collectedParams.start_date = result.collectedParams.end_date;
+    delete protectedResult.collectedParams.end_date;
+  }
+  
+  // 규칙 1: 시작일이 없으면 첫 번째 날짜는 시작일
+  else if (!existingStartDate && result.collectedParams.start_date) {
+    // OpenAI가 end_date도 같은 값으로 설정했다면 제거 (순차 입력 강제)
+    if (result.collectedParams.end_date === result.collectedParams.start_date) {
+      delete protectedResult.collectedParams.end_date;
+    }
+  }
+  
+  // 규칙 2: 시작일이 있고 종료일이 없으면 다음 날짜는 종료일
+  else if (existingStartDate && !existingEndDate) {
+    if (result.collectedParams.start_date && !result.collectedParams.end_date) {
+      protectedResult.collectedParams.end_date = result.collectedParams.start_date;
+      delete protectedResult.collectedParams.start_date;
+    }
+  }
+  
+  // 규칙 3: 둘 다 있으면 기존 값 보호 (덮어쓰기 방지)
+  else if (existingStartDate && existingEndDate) {
+    delete protectedResult.collectedParams.start_date;
+    delete protectedResult.collectedParams.end_date;
+  }
+  
+  
+  return protectedResult;
 }
 
 // 백업 파라미터 추출 로직 (키워드 기반)
@@ -613,7 +690,6 @@ function enhanceParameterExtraction(
   if (!result.collectedParams?.destination && destinations.some(dest => message.includes(dest))) {
     const foundDestination = destinations.find(dest => message.includes(dest));
     if (foundDestination) {
-      console.log('🎯 백업 로직으로 목적지 발견:', foundDestination);
       result.collectedParams = result.collectedParams || {};
       result.collectedParams.destination = foundDestination;
       
@@ -624,43 +700,43 @@ function enhanceParameterExtraction(
     }
   }
   
-  // 2. 기간 백업 추출 (숫자+일 패턴)
-  if (!result.collectedParams?.duration) {
-    const durationMatches = [
-      message.match(/(\d+)일/),
-      message.match(/(\d+)박\s*(\d+)일/),
-      message.match(/(\d+)박/),
-      message.match(/(\d+)주일?/),
-      message.match(/(\d+)개월/)
+  // 2. 날짜 백업 추출 (개별 날짜만)
+  if (!result.collectedParams?.startDate) {
+    const dateMatches = [
+      message.match(/(\d{1,2})월\s*(\d{1,2})일/),
+      message.match(/내일/),
+      message.match(/모레/),
+      message.match(/다음주/)
     ];
     
-    for (const match of durationMatches) {
+    for (const match of dateMatches) {
       if (match) {
-        let duration = 0;
-        if (match[0].includes('박') && match[2]) {
-          // X박Y일 형태
-          duration = parseInt(match[2]);
-        } else if (match[0].includes('박')) {
-          // X박 형태 (X박 = X+1일)
-          duration = parseInt(match[1]) + 1;
-        } else if (match[0].includes('주')) {
-          // X주일 형태
-          duration = parseInt(match[1]) * 7;
-        } else if (match[0].includes('개월')) {
-          // X개월 형태
-          duration = parseInt(match[1]) * 30;
-        } else {
-          // X일 형태
-          duration = parseInt(match[1]);
+        let dateStr = '';
+        if (match[1] && match[2]) {
+          // X월 Y일 형태
+          const month = parseInt(match[1]);
+          const day = parseInt(match[2]);
+          dateStr = `2025-${month.toString().padStart(2, '0')}-${day.toString().padStart(2, '0')}`;
+        } else if (match[0] === '내일') {
+          const tomorrow = new Date();
+          tomorrow.setDate(tomorrow.getDate() + 1);
+          dateStr = tomorrow.toISOString().split('T')[0];
+        } else if (match[0] === '모레') {
+          const dayAfterTomorrow = new Date();
+          dayAfterTomorrow.setDate(dayAfterTomorrow.getDate() + 2);
+          dateStr = dayAfterTomorrow.toISOString().split('T')[0];
+        } else if (match[0] === '다음주') {
+          const nextWeek = new Date();
+          nextWeek.setDate(nextWeek.getDate() + 7);
+          dateStr = nextWeek.toISOString().split('T')[0];
         }
         
-        if (duration > 0) {
-          console.log('📅 백업 로직으로 기간 발견:', duration);
+        if (dateStr) {
           result.collectedParams = result.collectedParams || {};
-          result.collectedParams.duration = duration;
+          result.collectedParams.startDate = dateStr;
           
-          if (result.missingParams?.includes('duration')) {
-            result.missingParams = result.missingParams.filter((param: string) => param !== 'duration');
+          if (result.missingParams?.includes('startDate')) {
+            result.missingParams = result.missingParams.filter((param: string) => param !== 'startDate');
           }
           break;
         }
@@ -688,7 +764,6 @@ function enhanceParameterExtraction(
         else if (match[1]) peopleCount = parseInt(match[1]);
         
         if (peopleCount > 0) {
-          console.log('👥 백업 로직으로 인원수 발견:', peopleCount);
           result.collectedParams = result.collectedParams || {};
           result.collectedParams.peopleCount = peopleCount;
           
@@ -704,28 +779,64 @@ function enhanceParameterExtraction(
   return result;
 }
 
-// 날짜 파라미터 처리 및 기간 자동 계산 함수
+// 날짜 파라미터 처리 및 유효성 검사 함수
 function processDateParameters(result: any): any {
   const processedResult = { ...result };
   
-  // startDate와 endDate가 모두 있으면 duration 자동 계산
-  if (processedResult.collectedParams?.startDate && processedResult.collectedParams?.endDate) {
+  // 오늘 날짜 (한국 시간 기준)
+  const today = new Date();
+  const todayStr = today.toISOString().split('T')[0];
+  
+  // 시작일 유효성 검사
+  if (processedResult.collectedParams?.startDate) {
+    const startDate = new Date(processedResult.collectedParams.startDate);
+    
+    if (!isNaN(startDate.getTime())) {
+      // 시작일이 과거인지 확인 (오늘은 허용)
+      if (processedResult.collectedParams.startDate < todayStr) {
+        processedResult.dateValidationError = {
+          type: 'startDateInPast',
+          message: '여행 시작일은 오늘 이후 날짜여야 합니다. 다시 입력해주세요.',
+          invalidDate: processedResult.collectedParams.startDate
+        };
+        // 잘못된 시작일 제거
+        delete processedResult.collectedParams.startDate;
+      }
+    }
+  }
+  
+  // 종료일 유효성 검사
+  if (processedResult.collectedParams?.endDate && processedResult.collectedParams?.startDate) {
     const startDate = new Date(processedResult.collectedParams.startDate);
     const endDate = new Date(processedResult.collectedParams.endDate);
     
     if (!isNaN(startDate.getTime()) && !isNaN(endDate.getTime())) {
-      const diffTime = Math.abs(endDate.getTime() - startDate.getTime());
+      // 종료일이 시작일보다 이전인지 확인
+      if (processedResult.collectedParams.endDate < processedResult.collectedParams.startDate) {
+        processedResult.dateValidationError = {
+          type: 'endDateBeforeStart',
+          message: `여행 종료일은 시작일(${processedResult.collectedParams.startDate}) 이후 날짜여야 합니다. 다시 입력해주세요.`,
+          invalidDate: processedResult.collectedParams.endDate,
+          startDate: processedResult.collectedParams.startDate
+        };
+        // 잘못된 종료일 제거
+        delete processedResult.collectedParams.endDate;
+      }
+    }
+  }
+  
+  // startDate와 endDate가 모두 있고 유효하면 duration 자동 계산
+  if (processedResult.collectedParams?.startDate && processedResult.collectedParams?.endDate && !processedResult.dateValidationError) {
+    const startDate = new Date(processedResult.collectedParams.startDate);
+    const endDate = new Date(processedResult.collectedParams.endDate);
+    
+    if (!isNaN(startDate.getTime()) && !isNaN(endDate.getTime())) {
+      const diffTime = endDate.getTime() - startDate.getTime();
       const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1; // +1 because travel days include both start and end
       
       processedResult.collectedParams.duration = diffDays;
       processedResult.calculatedDuration = diffDays;
       
-      console.log(`📅 자동 계산된 기간: ${processedResult.collectedParams.startDate} ~ ${processedResult.collectedParams.endDate} = ${diffDays}일`);
-      
-      // missingParams에서 duration 제거
-      if (processedResult.missingParams?.includes('duration')) {
-        processedResult.missingParams = processedResult.missingParams.filter((param: string) => param !== 'duration');
-      }
     }
   }
   
@@ -888,14 +999,16 @@ export async function generateTravelPlan(params: TravelParameters): Promise<Trav
   try {
     let prompt = PROMPTS.generateTravelPlan;
     
-    // 파라미터 치환
+    // 파라미터 치환 (DB 필드명으로 수정)
     prompt = prompt.replace('{DESTINATION}', params.destination || '');
+    prompt = prompt.replace('{START_DATE}', params.start_date || '');
+    prompt = prompt.replace('{END_DATE}', params.end_date || '');
     prompt = prompt.replace('{DURATION}', String(params.duration || 3));
-    prompt = prompt.replace('{PEOPLE_COUNT}', String(params.peopleCount || 1));
+    prompt = prompt.replace('{PEOPLE_COUNT}', String(params.people_count || 1));
     prompt = prompt.replace('{BUDGET}', params.budget ? `${params.budget} KRW` : 'Not specified');
     prompt = prompt.replace('{TRANSPORTATION}', params.transportation || 'Not specified');
     prompt = prompt.replace('{ACCOMMODATION}', params.accommodation || 'Not specified');
-    prompt = prompt.replace('{TRAVEL_STYLE}', params.travelStyle || 'Balanced');
+    prompt = prompt.replace('{TRAVEL_STYLE}', params.travel_style || 'Balanced');
 
     const response = await openai.chat.completions.create({
       model: 'gpt-4o',

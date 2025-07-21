@@ -9,7 +9,7 @@ import { useChat } from '@/hooks/useChat';
 import { useAuth } from '@/app/providers/AuthProvider';
 
 export interface ChatInterfaceRef {
-  clearConversationOnly: () => void;
+  clearConversationOnly: () => Promise<void>;
   clearAllRecords: () => Promise<void>;
 }
 
@@ -101,7 +101,6 @@ const ChatInterface = forwardRef<ChatInterfaceRef>((props, ref) => {
 
   // 인증 로딩 중
   if (authLoading || isInitializing) {
-    console.log('[ChatInterface] Loading state - authLoading:', authLoading, 'isInitializing:', isInitializing);
     return (
       <div className="flex flex-col items-center justify-center h-full p-8">
         <div className="flex space-x-1 mb-4">

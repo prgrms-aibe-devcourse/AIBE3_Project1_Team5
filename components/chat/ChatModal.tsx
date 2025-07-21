@@ -74,8 +74,22 @@ export default function ChatModal({ onClose }: ChatModalProps) {
       <ClearOptionsModal
         isOpen={showClearModal}
         onClose={() => setShowClearModal(false)}
-        onClearConversation={() => chatInterfaceRef.current?.clearConversationOnly()}
-        onClearAll={() => chatInterfaceRef.current?.clearAllRecords()}
+        onClearConversation={async () => {
+          try {
+            await chatInterfaceRef.current?.clearConversationOnly();
+          } catch (error) {
+            console.error('Error clearing conversation:', error);
+            alert('대화 내용 삭제 중 오류가 발생했습니다.');
+          }
+        }}
+        onClearAll={async () => {
+          try {
+            await chatInterfaceRef.current?.clearAllRecords();
+          } catch (error) {
+            console.error('Error clearing all records:', error);
+            alert('모든 기록 삭제 중 오류가 발생했습니다.');
+          }
+        }}
       />
 
       {/* Travel List Modal */}
