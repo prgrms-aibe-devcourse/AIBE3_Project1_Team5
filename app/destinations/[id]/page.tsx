@@ -25,6 +25,7 @@ export default function DestinationDetailPage() {
   const [reviews, setReviews] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [userNames, setUserNames] = useState<Record<string, string>>({});
 
   // Google 검색 통합 상태 관리
   const [googleSearchState, setGoogleSearchState] = useState({
@@ -89,6 +90,26 @@ export default function DestinationDetailPage() {
         setFoods(foodsRes.data || []);
         setReviews(reviewsRes.data || []);
         setTags(tagsRes.data || []);
+
+        // 리뷰 작성자 이름 가져오기
+        if (reviewsRes.data && reviewsRes.data.length > 0) {
+          const uniqueUserIds = Array.from(new Set(reviewsRes.data.map((r: any) => r.user_id)));
+          if (uniqueUserIds.length > 0) {
+            const { data: profileData, error: profileError } = await supabase
+              .from('profiles')
+              .select('user_id, name')
+              .in('user_id', uniqueUserIds);
+            if (profileError) {
+              console.error('프로필 데이터를 불러오지 못했습니다:', profileError.message);
+            } else if (profileData) {
+              const namesMap = profileData.reduce((acc: any, profile: any) => {
+                acc[profile.user_id] = profile.name;
+                return acc;
+              }, {} as Record<string, string>);
+              setUserNames(namesMap);
+            }
+          }
+        }
 
         // 사용자의 좋아요 상태 확인
         await checkUserLikeStatus(destinationId);
@@ -814,12 +835,20 @@ export default function DestinationDetailPage() {
                           <CardContent className="p-6">
                             <div className="flex items-start justify-between">
                               <div className="flex-1">
-                                <p className="text-gray-700 leading-relaxed mb-3">
-                                  {review.content}
-                                </p>
-                                <div className="flex items-center text-sm text-gray-500">
-                                  <span>리뷰 #{index + 1}</span>
+                                <div className="flex items-center mb-3">
+                                  <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center mr-3">
+                                    <span className="text-sm font-medium text-blue-600">
+                                      {userNames[review.user_id]?.charAt(0) || 'U'}
+                                    </span>
+                                  </div>
+                                  <div>
+                                    <p className="font-medium text-gray-900">
+                                      {userNames[review.user_id] || '익명 사용자'}
+                                    </p>
+                                    <p className="text-xs text-gray-500">리뷰 #{index + 1}</p>
+                                  </div>
                                 </div>
+                                <p className="text-gray-700 leading-relaxed">{review.content}</p>
                               </div>
                               <div className="ml-4 flex items-center">
                                 <Star className="h-4 w-4 text-yellow-400 fill-current mr-1" />
