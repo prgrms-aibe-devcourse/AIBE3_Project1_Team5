@@ -203,7 +203,7 @@ const TravelPlanCard = React.memo(({ plan }: { plan: TravelPlan }) => {
   };
 
   return (
-    <Link href={`/my-trips/${plan.id}`}>
+    <Link href={`/my-trips/edit/${plan.id}`}>
       <Card className="group transition-all duration-300 cursor-pointer border-0 shadow-md bg-white"> {/* hover:shadow-xl hover:scale-105 제거 */}
         <CardHeader className="pb-3">
           <CardTitle className="text-xl transition-colors line-clamp-2"> {/* group-hover:text-blue-600 제거 */}
