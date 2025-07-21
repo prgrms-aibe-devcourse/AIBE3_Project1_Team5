@@ -11,7 +11,6 @@ import { useAuth } from '@/app/providers/AuthProvider';
 const navItems = [
   { href: '/', label: '홈', icon: Home },
   { href: '/destinations', label: '여행지', icon: MapPin },
-  { href: '/chat', label: 'AI 채팅', icon: MessageCircle },
   { href: '/planner', label: '일정 계획', icon: Calendar },
   { href: '/my-trips', label: '내 여행', icon: UserCircle },
   { href: '/reviews', label: '후기', icon: Star },
