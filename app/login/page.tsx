@@ -35,7 +35,12 @@ export default function LoginPage() {
     try {
       const { error } = await signIn(email, password);
       if (error) {
-        setError(error.message);
+        // 서버에서 오는 에러 메시지가 'Invalid login credentials'일 경우 사용자 친화적으로 변경
+        if (error.message === 'Invalid login credentials') {
+          setError('이메일 또는 비밀번호가 올바르지 않습니다.');
+        } else {
+          setError(error.message);
+        }
       }
     } catch (err) {
       setError('로그인 중 오류가 발생했습니다.');
