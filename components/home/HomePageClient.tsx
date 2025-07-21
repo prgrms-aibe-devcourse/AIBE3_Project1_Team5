@@ -64,12 +64,10 @@ export default function HomePageClient({ destinations }: HomePageClientProps) {
                 </Link> 
               </div>
             </div>
-         {/* ⭐️ Recent Plans Section - 로그인 사용자만 (Client Component) */}
-      <RecentTravelPlans />
-
-      {/* Popular Destinations - 서버에서 렌더링된 데이터 */}
-      
           </section>
+          
+          {/* Recent Plans Section - 로그인 사용자만 */}
+          <RecentTravelPlans />
 
           {/* Popular Destinations - 서버에서 렌더링된 데이터 */}
           <section className="py-16 px-4">
