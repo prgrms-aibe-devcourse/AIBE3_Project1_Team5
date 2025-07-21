@@ -53,9 +53,9 @@ AI 챗봇을 통해 사용자 맞춤 여행 일정 자동 생성
 | 최원제 | 여행지 별 후기 / 이미지 업로드 |
 
 ## 💻 개발 환경
-	•	OS:  Windows, macOS
-	•	협업 도구: Git, GitHub, Notion
-	•	디자인 툴: V0 (AI UI Generator)
+	OS:  Windows, macOS
+	협업 도구: Git, GitHub, Notion
+	디자인 툴: V0 (AI UI Generator)
 
 ## 🔧 기술 스택
 - **Frontend**: Next.js 14, React, TypeScript, Tailwind CSS
