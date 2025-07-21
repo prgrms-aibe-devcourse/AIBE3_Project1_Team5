@@ -1,5 +1,5 @@
 import { useState, useMemo, useCallback } from 'react';
-import { calculateTotalCost, getBudgetCategory, POPULAR_THRESHOLD } from '@/utils/destination/destinationUtils'; // 유틸리티 함수 임포트
+import { calculateTotalCost, getBudgetCategory } from '@/utils/destination/destinationUtils'; // 유틸리티 함수 임포트
 import { Destination, FilterState } from '@/utils/destination/types'; 
 
 
