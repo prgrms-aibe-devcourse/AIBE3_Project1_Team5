@@ -55,31 +55,38 @@ https://www.erdcloud.com/d/kgdtqitSQGS9eDpEJ
 ## 📂 프로젝트 파일 구조
 ```bash
 aibe3-project1-team5/
-├── app/
-│ ├── chat/
-│ ├── components/
-│ │ └── inputForm/
-│ ├── destinations/
-│ ├── login/
-│ ├── planner/
-│ ├── providers/
-│ ├── reviews/
-│ ├── setprofile/
-│ ├── signup/
-│ ├── globals.css
-│ ├── layout.tsx
-│ └── page.tsx
-├── components/
-│ ├── chat/
-│ ├── reviews/
-│ ├── SearchForm.tsx
-│ ├── theme-provider.tsx
-│ └── ui/
-├── hooks/
-├── lib/
-├── public/
-├── styles/
-├── package.json
-├── README.md
+├── app/                        # 주요 페이지, 라우트, 레이아웃 등
+│   ├── api/                    # API 라우트 
+│   ├── chat/                   # 채팅 관련 페이지
+│   ├── components/             # 페이지 전용 컴포넌트
+│   ├── destinations/           # 여행지 관련 페이지
+│   ├── login/                  # 로그인 페이지
+│   ├── my-trips/               # 내 여행 관리 페이지
+│   ├── planner/                # 여행 플래너 페이지
+│   ├── providers/              # 전역 Provider
+│   ├── reviews/                # 리뷰 관련 페이지
+│   ├── setprofile/             # 프로필 설정 페이지
+│   ├── signup/                 # 회원가입 페이지
+│   ├── globals.css             # 전역 스타일
+│   ├── layout.tsx              # 전체 레이아웃
+│   └── page.tsx                # 메인 페이지
+│
+├── components/                 # 재사용 가능한 UI 컴포넌트
+│   ├── chat/                   # 채팅 UI 컴포넌트
+│   ├── destination/            # 여행지 UI 컴포넌트
+│   ├── home/                   # 홈 화면 UI 컴포넌트
+│   ├── reviews/                # 리뷰 UI 컴포넌트
+│   ├── trip-details/           # 여행 상세 UI 컴포넌트
+│   └── ui/                     # 공통 UI 컴포넌트(버튼, 입력창 등)
+│
+├── hooks/                      # 커스텀 훅
+├── lib/                        # 라이브러리, 유틸 함수, 서비스
+├── utils/                      # 유틸리티 함수, 상수, 타입 등
+├── public/                     # 정적 파일(이미지, 아이콘 등)
+├── styles/                     # 추가 스타일 파일
+│
+├── package.json                
+├── package-lock.json           
+├── tailwind.config.ts         
 └── ...
 ```
