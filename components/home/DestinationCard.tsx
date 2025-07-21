@@ -6,6 +6,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { Destination } from '@/utils/destination/types';
 
+
 interface DestinationCardProps {
   destination: Destination;
 }
