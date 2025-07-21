@@ -48,7 +48,7 @@
 - **협업/관리**: Git, GitHub, Figma, Notion
 
 ## 🧩 ERD
-<img width="1380" height="666" alt="erd" src="https://github.com/user-attachments/assets/fb248dae-8d71-4719-845f-e3d0d4c2af37" />
+<img width="2113" height="957" alt="erd" src="https://github.com/user-attachments/assets/c4cec71f-4b98-4e2f-ba14-f3ec965be6b6" />
 https://www.erdcloud.com/d/kgdtqitSQGS9eDpEJ
 
 
