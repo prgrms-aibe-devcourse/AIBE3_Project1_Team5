@@ -29,12 +29,22 @@ export default function Navigation() {
         <div className="max-w-6xl mx-auto px-4">
           <div className="flex justify-between items-center h-16">
             {/* Logo */}
-            <Link href="/" className="flex items-center space-x-2">
-              <div className="bg-blue-600 rounded-lg p-2">
-                <Calendar className="h-6 w-6 text-white" />
+            <Link href="/" className="flex items-center space-x-4 group">
+              <div className="relative">
+                <div className="absolute inset-0 bg-blue-600 rounded-2xl blur opacity-25 group-hover:opacity-40 transition-opacity duration-300"></div>
+                <div className="relative bg-white border border-blue-100 rounded-2xl p-3 shadow-sm group-hover:shadow-md transition-all duration-300">
+                  <MapPin className="h-6 w-6 text-blue-600" />
+                </div>
               </div>
-              <Image src="/logo.png"  alt="HOOLJJEOK Logo" width={90} height={70} />
-              {/* <span className="text-xl font-bold text-gray-900">HOOLJJEOK</span> */}
+              <div className="flex flex-col">
+                <Image
+                  src="/logo.png"
+                  alt="HOOLJJEOK Logo"
+                  width={110}
+                  height={90}
+                  className="transition-all duration-300 group-hover:brightness-110"
+                />
+              </div>
             </Link>
 
             {/* Desktop Navigation Skeleton */}
@@ -68,13 +78,22 @@ export default function Navigation() {
       <div className="max-w-6xl mx-auto px-4">
         <div className="flex justify-between items-center h-16">
           {/* Logo */}
-          <Link href="/" className="flex items-center space-x-2">
-            <div className="bg-blue-600 rounded-lg p-2">
-              <Calendar className="h-6 w-6 text-white" />
+          <Link href="/" className="flex items-center space-x-4 group">
+            <div className="relative">
+              <div className="absolute inset-0 bg-blue-600 rounded-2xl blur opacity-25 group-hover:opacity-40 transition-opacity duration-300"></div>
+              <div className="relative bg-white border border-blue-100 rounded-2xl p-3 shadow-sm group-hover:shadow-md transition-all duration-300">
+                <MapPin className="h-6 w-6 text-blue-600" />
+              </div>
             </div>
-            <Image src="/logo.png"  alt="HOOLJJEOK Logo" width={110} height={90} />
-
-            {/* <span className="text-xl font-bold text-gray-900">HOOLJJEOK</span> */}
+            <div className="flex flex-col">
+              <Image
+                src="/logo.png"
+                alt="HOOLJJEOK Logo"
+                width={90}
+                height={70}
+                className="transition-all duration-300 group-hover:brightness-110"
+              />
+            </div>
           </Link>
 
           {/* Desktop Navigation */}
