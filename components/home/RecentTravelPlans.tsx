@@ -13,8 +13,8 @@ interface TravelPlan {
   id: string;
   user_id: string;
   title: string;
-  start_date: string; // date 타입은 ISO 8601 문자열로 넘어옴
-  end_date: string;   // date 타입은 ISO 8601 문자열로 넘어옴
+  start_date: string; 
+  end_date: string;   
   destination: string;
   created_at: string;
   version: number | null;
@@ -148,7 +148,7 @@ export default function RecentTravelPlans() {
               </Link>
             </div>
           </div>
-        )}
+        )} 
       </div>
     </section>
   );
