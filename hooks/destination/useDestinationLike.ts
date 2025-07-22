@@ -54,6 +54,13 @@ export function useDestinationLike(travelId: string | number | undefined) {
 
   // 찜 토글
   const toggleLike = async () => {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) {
+      alert('로그인 후 이용해주세요');
+      return;
+    }
     const newLikedState = !isLiked;
     setIsLiked(newLikedState);
     try {
