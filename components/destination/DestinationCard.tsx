@@ -4,7 +4,11 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Heart, MapPin, Star } from 'lucide-react';
-import { calculateTotalCost, getBudgetCategory, POPULAR_THRESHOLD } from '@/utils/destination/destinationUtils'; // 유틸리티 함수 임포트
+import {
+  calculateTotalCost,
+  getBudgetCategory,
+  POPULAR_THRESHOLD,
+} from '@/utils/destination/destinationUtils'; // 유틸리티 함수 임포트
 import { Destination } from '@/utils/destination/types'; // 타입 정의 임포트
 
 interface DestinationCardProps {
@@ -21,7 +25,7 @@ const DestinationCard = React.memo(
 
     const totalCost = calculateTotalCost(destination);
     const budgetCategory = getBudgetCategory(totalCost);
-    const isPopular = (destination.is_popular === true);
+    const isPopular = destination.is_popular === true;
 
     return (
       <Card
