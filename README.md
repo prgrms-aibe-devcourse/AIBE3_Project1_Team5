@@ -96,9 +96,9 @@ https://www.erdcloud.com/d/kgdtqitSQGS9eDpEJ
 
 ## 📂 프로젝트 파일 구조
 ```bash
-aibe3-project1-team5/
+AIBE3_Project1_Team5/
 ├── app/                        # 주요 페이지, 라우트, 레이아웃 등
-│   ├── api/                    # API 라우트 
+│   ├── api/                    # API 라우트
 │   ├── chat/                   # 채팅 관련 페이지
 │   ├── components/             # 페이지 전용 컴포넌트
 │   ├── destinations/           # 여행지 관련 페이지
@@ -111,6 +111,7 @@ aibe3-project1-team5/
 │   ├── signup/                 # 회원가입 페이지
 │   ├── globals.css             # 전역 스타일
 │   ├── layout.tsx              # 전체 레이아웃
+│   ├── loading.tsx
 │   └── page.tsx                # 메인 페이지
 │
 ├── components/                 # 재사용 가능한 UI 컴포넌트
@@ -126,9 +127,17 @@ aibe3-project1-team5/
 ├── utils/                      # 유틸리티 함수, 상수, 타입 등
 ├── public/                     # 정적 파일(이미지, 아이콘 등)
 ├── styles/                     # 추가 스타일 파일
+├── scripts/                    # 스크립트 모음
+├── test/                       # 테스트 코드
+├── test-reports/               # 테스트 리포트
+├── chat-analysis-reports/      # 채팅 분석 리포트
+├── prompt/                     # 프롬프트 관련 파일
 │
 ├── package.json                
 ├── package-lock.json           
 ├── tailwind.config.ts         
-└── ...
+├── README.md
+├── .prettierrc
+├── .prettierignore
+└── 기타 설정 및 문서 파일들
 ```
