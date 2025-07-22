@@ -98,15 +98,15 @@ OS:  Windows, macOS
 ## 🧩 ERD
 <img width="1435" height="756" alt="스크린샷 2025-07-22 오전 8 59 15" src="https://github.com/user-attachments/assets/dacce637-df0c-46be-be76-2916a41bd3a9" />
 
-[ERD](https://www.erdcloud.com/d/kgdtqitSQGS9eDpEJ)
+[ERD link](https://www.erdcloud.com/d/kgdtqitSQGS9eDpEJ)
 
 
 ### 주요 테이블
-- `users` - 사용자 정보 및 프로필
-- `destinations` - 여행지 마스터 데이터
-- `trips` - 사용자 여행 계획
-- `reviews` - 여행지 후기 및 평점
-- `trip_destinations` - 여행 일정 상세 정보
+- `profile` - 사용자 정보 및 프로필
+- `travels` - 여행지 마스터 데이터
+- `travel_plan` - 사용자 여행 계획
+- `review` - 여행지 후기 및 평점
+- `chat_sessions` - AI 프롬프트 관련
 
 
 ## 📂 프로젝트 파일 구조
