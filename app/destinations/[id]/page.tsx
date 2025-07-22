@@ -10,13 +10,13 @@ import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { supabase } from '@/lib/supabase';
 import { useEffect } from 'react';
-import axios from 'axios';
+import { useDestinationLike } from '@/hooks/destination/useDestinationLike';
+import LikeButton from '@/components/destination/LikeButton';
+import GoogleSearchResults from '@/components/destination/GoogleSearchResults';
 
 export default function DestinationDetailPage() {
   const params = useParams();
   const router = useRouter();
-  const [favorites, setFavorites] = useState<number[]>([]);
-  const [isLiked, setIsLiked] = useState(false);
   const [destination, setDestination] = useState<any>(null);
   const [spots, setSpots] = useState<any[]>([]);
   const [hotels, setHotels] = useState<any[]>([]);
@@ -27,38 +27,9 @@ export default function DestinationDetailPage() {
   const [error, setError] = useState<string | null>(null);
   const [userNames, setUserNames] = useState<Record<string, string>>({});
 
-  // Google 검색 통합 상태 관리
-  const [googleSearchState, setGoogleSearchState] = useState({
-    hotels: {
-      showResults: false,
-      response: null,
-      results: [],
-      loading: false,
-      loadingMore: false,
-      nextStart: null,
-      hasMore: false,
-    },
-    spots: {
-      showResults: false,
-      response: null,
-      results: [],
-      loading: false,
-      loadingMore: false,
-      nextStart: null,
-      hasMore: false,
-    },
-    foods: {
-      showResults: false,
-      response: null,
-      results: [],
-      loading: false,
-      loadingMore: false,
-      nextStart: null,
-      hasMore: false,
-    },
-  });
-
   const destinationId = params.id as string;
+
+  const { isLiked, toggleLike } = useDestinationLike(destinationId);
 
   useEffect(() => {
     const fetchAll = async () => {
@@ -110,9 +81,6 @@ export default function DestinationDetailPage() {
             }
           }
         }
-
-        // 사용자의 좋아요 상태 확인
-        await checkUserLikeStatus(destinationId);
       } catch (err: any) {
         setError(err.message || '데이터를 불러오는 중 오류가 발생했습니다.');
       } finally {
@@ -141,112 +109,6 @@ export default function DestinationDetailPage() {
         </div>
       </div>
     );
-  }
-
-  // 사용자 좋아요 상태 확인 함수
-  async function checkUserLikeStatus(travelId: string) {
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-
-    if (!user) {
-      setIsLiked(false);
-      return;
-    }
-
-    const { data, error } = await supabase
-      .from('travel_like')
-      .select('*')
-      .eq('user_id', user.id)
-      .eq('travel_id', travelId)
-      .maybeSingle();
-
-    if (error) {
-      console.error('좋아요 상태 확인 오류:', error);
-      setIsLiked(false);
-      return;
-    }
-
-    setIsLiked(!!data);
-  }
-
-  // 좋아요 버튼 토글 함수
-  const toggleFavorite = async () => {
-    try {
-      // 즉시 UI 상태 변경 (낙관적 업데이트)
-      const newLikedState = !isLiked;
-      setIsLiked(newLikedState);
-
-      if (newLikedState) {
-        // 좋아요 추가
-        const result = await addLike(destination.id);
-        if (!result.success) {
-          // 실패 시 원래 상태로 되돌리기
-          setIsLiked(false);
-          if (
-            result.error &&
-            typeof result.error === 'object' &&
-            'message' in result.error &&
-            result.error.message === '로그인이 필요합니다'
-          ) {
-            alert('로그인이 필요한 서비스입니다.');
-          }
-        }
-      } else {
-        // 좋아요 삭제
-        const result = await removeLike(destination.id);
-        if (!result.success) {
-          // 실패 시 원래 상태로 되돌리기
-          setIsLiked(true);
-        }
-      }
-    } catch (error) {
-      // 에러 발생 시 원래 상태로 되돌리기
-      setIsLiked(!isLiked);
-      console.error('찜하기 토글 오류:', error);
-    }
-  };
-
-  // 좋아요 추가 함수
-  async function addLike(travelId: string) {
-    try {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      if (!user) throw new Error('로그인이 필요합니다');
-
-      const { error } = await supabase
-        .from('travel_like')
-        .insert({ user_id: user.id, travel_id: travelId });
-
-      if (error) throw error;
-      return { success: true };
-    } catch (error) {
-      console.error('좋아요 추가 오류:', error);
-      return { success: false, error };
-    }
-  }
-
-  // 좋아요 삭제 함수
-  async function removeLike(travelId: string) {
-    try {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      if (!user) throw new Error('로그인이 필요합니다');
-
-      const { error } = await supabase
-        .from('travel_like')
-        .delete()
-        .eq('user_id', user.id)
-        .eq('travel_id', travelId);
-
-      if (error) throw error;
-      return { success: true };
-    } catch (error) {
-      console.error('좋아요 삭제 오류:', error);
-      return { success: false, error };
-    }
   }
 
   // 예산 계산 함수
@@ -281,211 +143,6 @@ export default function DestinationDetailPage() {
       ? (reviews.reduce((acc, review) => acc + review.score, 0) / reviews.length).toFixed(1)
       : '0.0';
 
-  // 구글 검색 결과 로드 함수
-  const loadGoogleResults = async (
-    searchType: 'hotels' | 'spots' | 'foods',
-    start: number = 1,
-    append: boolean = false
-  ) => {
-    // 검색어 설정
-    let query = destination.name_kr;
-    if (searchType === 'hotels') query += ' 숙소';
-    if (searchType === 'spots') query += ' 관광지';
-    if (searchType === 'foods') query += ' 맛집';
-
-    try {
-      const res = await fetch(
-        `/api/google_api_route?query=${encodeURIComponent(query)}&start=${start}`
-      );
-      const data = await res.json();
-
-      setGoogleSearchState((prev) => ({
-        ...prev,
-        [searchType]: {
-          ...prev[searchType],
-          response: data,
-          nextStart: data.nextStart,
-          hasMore: !!data.nextStart,
-          results: append
-            ? [...prev[searchType].results, ...(data.results || [])]
-            : data.results || [],
-        },
-      }));
-    } catch (error) {
-      console.error('Google 검색 오류:', error);
-    }
-  };
-
-  // 더 많은 결과 로드
-  const loadMoreResults = async (searchType: 'hotels' | 'spots' | 'foods') => {
-    const currentState = googleSearchState[searchType];
-
-    if (!currentState.nextStart || currentState.loadingMore) return;
-
-    setGoogleSearchState((prev) => ({
-      ...prev,
-      [searchType]: {
-        ...prev[searchType],
-        loadingMore: true,
-      },
-    }));
-
-    await loadGoogleResults(searchType, currentState.nextStart, true);
-
-    setGoogleSearchState((prev) => ({
-      ...prev,
-      [searchType]: {
-        ...prev[searchType],
-        loadingMore: false,
-      },
-    }));
-  };
-
-  // Google 검색 결과 UI 컴포넌트
-  // 더보기 버튼 컴포넌트
-  const MoreButton = ({
-    onClick,
-    loading = false,
-    text = '더보기',
-    className = 'mt-8',
-  }: {
-    onClick: () => void;
-    loading?: boolean;
-    text?: string;
-    className?: string;
-  }) => (
-    <div className={`text-center ${className}`}>
-      <button
-        className="group relative inline-flex items-center justify-center px-6 py-3 text-sm font-medium text-blue-600 bg-white border-2 border-blue-200 rounded-full hover:bg-blue-50 hover:border-blue-300 transition-all duration-200 shadow-sm hover:shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
-        onClick={onClick}
-        disabled={loading}
-      >
-        <span className="mr-2">{loading ? '로딩 중...' : text}</span>
-        {!loading && (
-          <svg
-            className="w-4 h-4 transition-transform duration-200 group-hover:translate-x-1"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-          </svg>
-        )}
-      </button>
-    </div>
-  );
-
-  // 구글 검색 결과 컴포넌트
-  const GoogleSearchResults = ({ searchType }: { searchType: 'hotels' | 'spots' | 'foods' }) => {
-    const currentState = googleSearchState[searchType];
-
-    const handleLoadMore = async () => {
-      await loadMoreResults(searchType);
-    };
-
-    const handleShowResults = async () => {
-      setGoogleSearchState((prev) => ({
-        ...prev,
-        [searchType]: {
-          ...prev[searchType],
-          showResults: true,
-          loading: true,
-        },
-      }));
-
-      await loadGoogleResults(searchType, 1, false);
-
-      setGoogleSearchState((prev) => ({
-        ...prev,
-        [searchType]: {
-          ...prev[searchType],
-          loading: false,
-        },
-      }));
-    };
-
-    const handleHideResults = () => {
-      setGoogleSearchState((prev) => ({
-        ...prev,
-        [searchType]: {
-          ...prev[searchType],
-          showResults: false,
-          response: null,
-          results: [],
-          nextStart: null,
-          hasMore: false,
-        },
-      }));
-    };
-
-    return (
-      <>
-        {/* 더보기 버튼 */}
-        {!currentState.showResults && <MoreButton onClick={handleShowResults} />}
-
-        {/* 가공된 구글 검색 결과 */}
-        {currentState.showResults && (
-          <div className="mt-6">
-            <div className="flex items-center justify-center mb-4">
-              <button
-                className="flex items-center space-x-1 text-sm text-gray-500 hover:text-gray-700 transition"
-                onClick={handleHideResults}
-              >
-                <ChevronUp className="h-4 w-4" />
-                <span>접기</span>
-              </button>
-            </div>
-            {currentState.loading ? (
-              <div className="text-center py-4">검색 중...</div>
-            ) : currentState.results.length > 0 ? (
-              <>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {currentState.results.map((result: any) => (
-                    <Card
-                      key={result.id}
-                      className="overflow-hidden cursor-pointer hover:shadow-lg transition-shadow"
-                      onClick={() => window.open(result.link, '_blank', 'noopener,noreferrer')}
-                    >
-                      <div className="relative h-48">
-                        <img
-                          src={result.image || result.thumbnail || '/placeholder.jpg'}
-                          alt={result.title}
-                          className="w-full h-full object-cover"
-                          onError={(e) => {
-                            const target = e.target as HTMLImageElement;
-                            target.src = '/placeholder.jpg';
-                          }}
-                        />
-                      </div>
-                      <CardContent className="p-4">
-                        <div className="flex justify-between items-start mb-2">
-                          <h4 className="font-semibold text-gray-900">{result.title}</h4>
-                        </div>
-                        <p className="text-sm text-gray-600 mb-3">{result.snippet}</p>
-                      </CardContent>
-                    </Card>
-                  ))}
-                </div>
-
-                {/* 더 많은 결과 로드 버튼 */}
-                {currentState.hasMore && (
-                  <MoreButton
-                    onClick={handleLoadMore}
-                    loading={currentState.loadingMore}
-                    text="더 많은 결과 보기"
-                    className="mt-6"
-                  />
-                )}
-              </>
-            ) : (
-              <div className="text-center py-4 text-gray-500">검색 결과가 없습니다.</div>
-            )}
-          </div>
-        )}
-      </>
-    );
-  };
-
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
@@ -514,16 +171,7 @@ export default function DestinationDetailPage() {
 
           {/* Favorite Button */}
           <div className="absolute top-4 right-4 z-10">
-            <Button
-              variant="outline"
-              onClick={toggleFavorite}
-              className="bg-white/90 hover:bg-white border-white/50"
-            >
-              <Heart
-                className={`h-4 w-4 ${isLiked ? 'text-red-500 fill-current' : 'text-gray-600'}`}
-              />
-              <span className="ml-2">{isLiked ? '찜' : '찜하기'}</span>
-            </Button>
+            <LikeButton isLiked={isLiked} onClick={toggleLike} label={isLiked ? '찜' : '찜하기'} />
           </div>
 
           {/* Content Overlay */}
@@ -729,7 +377,7 @@ export default function DestinationDetailPage() {
                       ))}
                     </div>
                     {/* Google 검색 결과 */}
-                    <GoogleSearchResults searchType="spots" />
+                    <GoogleSearchResults destination={destination} searchType="spots" />
                   </TabsContent>
 
                   {/* 숙박 탭 */}
@@ -774,7 +422,7 @@ export default function DestinationDetailPage() {
                       ))}
                     </div>
                     {/* Google 검색 결과 */}
-                    <GoogleSearchResults searchType="hotels" />
+                    <GoogleSearchResults destination={destination} searchType="hotels" />
                   </TabsContent>
 
                   {/* 맛집 탭 */}
@@ -818,7 +466,7 @@ export default function DestinationDetailPage() {
                       ))}
                     </div>
                     {/* Google 검색 결과 */}
-                    <GoogleSearchResults searchType="foods" />
+                    <GoogleSearchResults destination={destination} searchType="foods" />
                   </TabsContent>
 
                   {/* 리뷰 탭 */}
