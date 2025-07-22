@@ -66,7 +66,7 @@ AI 챗봇을 통해 사용자 맞춤 여행 일정 자동 생성
 - **협업/관리**: Git, GitHub, Notion
 
 ## 🧩 ERD
-<img width="2113" height="957" alt="erd" src="https://github.com/user-attachments/assets/c4cec71f-4b98-4e2f-ba14-f3ec965be6b6" />
+<img width="1435" height="756" alt="스크린샷 2025-07-22 오전 8 59 15" src="https://github.com/user-attachments/assets/dacce637-df0c-46be-be76-2916a41bd3a9" />
 https://www.erdcloud.com/d/kgdtqitSQGS9eDpEJ
 
 
