@@ -9,19 +9,21 @@ AI 맞춤 추천과 직관적인 일정 관리로 완벽한 여행을 계획하�
 
 - [📖 프로젝트 소개](#-프로젝트-소개)
 - [🌟 서비스 소개](#-서비스-소개)
+- [🚀 배포링크](#-배포링크)
 - [📅 개발기간](#-개발기간)
 - [👩‍💻 개발자 소개 / 역할](#-개발자-소개--역할)
 - [💻 개발 환경](#-개발-환경)
-- [🛠️ 설치 및 실행 방법](#-설치-및-실행-방법)
 - [🔧 기술 스택](#-기술-스택)
 - [🧩 ERD](#-erd)
 - [📂 프로젝트 파일 구조](#-프로젝트-파일-구조)
+- [🛠️ 설치 및 실행 방법](#-설치-및-실행-방법)
 
 ## 📖 프로젝트 소개
 
 
 사용자가 원하는 국가 또는 도시를 쉽게 검색하고,
 각 여행지의 상세 정보를 직관적인 UI로 확인할 수 있는 여행 플랫폼입니다. __AI와 연동된 맞춤형 여행 일정 추천__ 기능과 __일정 생성기능__ 도 제공합니다.
+
 
 ## 🌟 서비스 소개
 
@@ -46,20 +48,23 @@ AI 챗봇을 통해 사용자 맞춤 여행 일정 자동 생성
 |--------|--------------|----|
 | <img width="320" height="180" alt="image" src="https://github.com/user-attachments/assets/11950728-93e6-4d9e-9d8c-dba613a84a2c" /> |<img width="320" height="180" alt="image" src="https://github.com/user-attachments/assets/7bbc990a-3e9a-457a-8e26-356f55e1c186" />|<img width="320" height="180" alt="image" src="https://github.com/user-attachments/assets/f44f0014-b495-4e20-af67-b6ca2581e1ff" />|
 
+## 🚀 배포링크
+[여기에서 실제 서비스를 체험해보세요](https://aibe-3-project1-team5.vercel.app/) 🚀
 
 ## 📅 개발기간
 
 2025년 7월 15일 ~ 2025년 7월 22일 (7일간)
 
 ## 👩‍💻 개발자 소개 / 역할
-| 이름   | 역할                |
-| ------ | ------------------- |
-| 김도하 | 회원가입 / 로그인 |
-| 이연서 | 메인 화면, 여행지 리스트 출력 |
-| 임창기 | AI 여행 추천 채팅 |
-| 박세웅 | 여행 일정 생성 / 관리 |
-| 주권영 | 여행지 정보 상세 출력 |
-| 최원제 | 여행지 별 후기 / 이미지 업로드 |
+
+| 개발자 | 담당 기능 | GitHub |
+|--------|-----------|---------|
+| 김도하 |  사용자 인증, 보안 | [@doha-kim](https://github.com/doha-kim) |
+| 이연서 |  메인 화면, 여행지 리스트 | [@yeonseo-lee](https://github.com/yeonseo-lee) |
+| 임창기 |  AI 챗봇, 추천 시스템 | [@changki-lim](https://github.com/changki-lim) |
+| 박세웅 |  일정 생성/관리, 지도 API | [@sewoong-park](https://github.com/sewoong-park) |
+| 주권영 |  여행지 상세 페이지 | [@kwonyoung-ju](https://github.com/kwonyoung-ju) |
+| 최원제 | 후기 시스템, 파일 업로드 | [@wonje-choi](https://github.com/wonje-choi) |
 
 ## 💻 개발 환경
 ```
@@ -68,35 +73,40 @@ OS:  Windows, macOS
 디자인 툴: V0 (AI UI Generator)
 ```
 
-## 🛠️ 설치 및 실행 방법
 
-```bash
-# 1. 레포지토리 클론
-git clone https://github.com/your-org/AIBE3_Project1_Team5.git
-
-# 2. 패키지 설치
-cd AIBE3_Project1_Team5
-npm install
-
-# 3. 환경변수 설정
-cp .env.example .env
-# .env 파일에 Supabase 키 등 채우기
-
-# 4. 개발 서버 실행
-npm run dev
-```
 
 ## 🔧 기술 스택
-- **Frontend**: Next.js 14, React, TypeScript, Tailwind CSS
-- **Backend/DB**: Supabase (PostgreSQL, Auth, Storage)
-- **디자인/생성 툴**: V0
-- **AI** : OpenAI API (챗봇 기반 추천)
-- **지도** : Google Maps API
-- **협업/관리**: Git, GitHub, Notion
+### Frontend
+![Next.js](https://img.shields.io/badge/Next.js-000000?style=flat&logo=next.js&logoColor=white)
+![React](https://img.shields.io/badge/React-20232A?style=flat&logo=react&logoColor=61DAFB)
+![TypeScript](https://img.shields.io/badge/TypeScript-007ACC?style=flat&logo=typescript&logoColor=white)
+![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-38B2AC?style=flat&logo=tailwind-css&logoColor=white)
+
+### Backend & Database
+![Supabase](https://img.shields.io/badge/Supabase-3ECF8E?style=flat&logo=supabase&logoColor=white)
+![PostgreSQL](https://img.shields.io/badge/PostgreSQL-316192?style=flat&logo=postgresql&logoColor=white)
+
+### AI & APIs
+![OpenAI](https://img.shields.io/badge/OpenAI-412991?style=flat&logo=openai&logoColor=white)
+![Google Maps](https://img.shields.io/badge/Google_Maps-4285F4?style=flat&logo=google-maps&logoColor=white)
+
+### 도구 & 협업
+![Git](https://img.shields.io/badge/Git-F05032?style=flat&logo=git&logoColor=white)
+![GitHub](https://img.shields.io/badge/GitHub-100000?style=flat&logo=github&logoColor=white)
+![Notion](https://img.shields.io/badge/Notion-000000?style=flat&logo=notion&logoColor=white)
 
 ## 🧩 ERD
 <img width="1435" height="756" alt="스크린샷 2025-07-22 오전 8 59 15" src="https://github.com/user-attachments/assets/dacce637-df0c-46be-be76-2916a41bd3a9" />
-https://www.erdcloud.com/d/kgdtqitSQGS9eDpEJ
+
+[ERD](https://www.erdcloud.com/d/kgdtqitSQGS9eDpEJ)
+
+
+### 주요 테이블
+- `users` - 사용자 정보 및 프로필
+- `destinations` - 여행지 마스터 데이터
+- `trips` - 사용자 여행 계획
+- `reviews` - 여행지 후기 및 평점
+- `trip_destinations` - 여행 일정 상세 정보
 
 
 ## 📂 프로젝트 파일 구조
@@ -145,4 +155,22 @@ AIBE3_Project1_Team5/
 ├── .prettierrc
 ├── .prettierignore
 └── 기타 설정 및 문서 파일들
+```
+
+## 🛠️ 설치 및 실행 방법
+
+```bash
+# 1. 레포지토리 클론
+git clone https://github.com/your-org/AIBE3_Project1_Team5.git
+
+# 2. 패키지 설치
+cd AIBE3_Project1_Team5
+npm install
+
+# 3. 환경변수 설정
+cp .env.example .env
+# .env 파일에 Supabase 키 등 채우기
+
+# 4. 개발 서버 실행
+npm run dev
 ```
