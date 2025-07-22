@@ -20,8 +20,12 @@ const MoreButton = ({
 }) => (
   <div className={`text-center ${className}`}>
     <button
+      type="button"
       className="group relative inline-flex items-center justify-center px-6 py-3 text-sm font-medium text-blue-600 bg-white border-2 border-blue-200 rounded-full hover:bg-blue-50 hover:border-blue-300 transition-all duration-200 shadow-sm hover:shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
-      onClick={onClick}
+      onClick={(e) => {
+        e.currentTarget.blur();
+        onClick();
+      }}
       disabled={loading}
     >
       <span className="mr-2">{loading ? '로딩 중...' : text}</span>
