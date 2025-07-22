@@ -187,7 +187,7 @@ export default function SignUpPage() {
               <Button
                 type="submit"
                 className="w-full bg-blue-600 hover:bg-blue-700 text-white py-3 rounded-lg font-medium"
-                disabled={isSubmitting || !isFormValid}
+                disabled={isSubmitting || !isFormValid || !isNameChecked}
               >
                 {isSubmitting ? '가입 중...' : '회원가입'}
               </Button>

@@ -141,7 +141,7 @@ export default function SetProfilePage() {
               <Button
                 type="submit"
                 className="w-full bg-blue-600 hover:bg-blue-700 text-white py-3 rounded-lg font-medium"
-                disabled={isSubmitting || !!nameError}
+                disabled={isSubmitting || !!nameError || !isNameChecked}
               >
                 {isSubmitting ? '설정 중...' : '프로필 설정 완료'}
               </Button>
