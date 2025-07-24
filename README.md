@@ -32,13 +32,13 @@ Google, GitHub, Kakao를 통한 간편 로그인 / 로그아웃
 사용자 프로필 관리 기능 포함
 - __🗺️ 여행지 검색 및 상세 정보 제공__
 국가/도시 기준 검색
-이미지, 설명, 팁, 여행 최적 시기 등의 상세 정보 제공
+이미지, 설명, 팁, 여행 최적 시기 등의 상세 정보 제공, 구글 api기반 검색기능
 - __🧭 여행 일정 생성 및 관리__
-Google Maps 기반 인터페이스로 직관적인 일정 구성
+Google Maps 기반 인터페이스로 직관적인 일정 타임라인 구성
 일정에 장소 추가/수정/삭제 가능
 - __🤖 AI 여행 일정 추천__
-AI 챗봇을 통해 사용자 맞춤 여행 일정 자동 생성
-프롬프트 바탕 여행 일정 정보 열람 및 다운로드
+ OpenAI API 기반 챗봇을 통해 사용자 맞춤 여행 일정 자동 생성
+프롬프트 바탕 여행 일정 정보 보기 및 JSON 형태로 표준화된 여행 일정 데이터 다운로드
 - __📝 여행 후기 시스템__
 여행지별 후기 작성 / 수정 / 삭제 / 검색 기능 제공
 이미지 업로드 가능
@@ -47,6 +47,12 @@ AI 챗봇을 통해 사용자 맞춤 여행 일정 자동 생성
 | 홈 화면 | 여행지 상세 |로그인 |
 |--------|--------------|----|
 | <img width="320" height="180" alt="image" src="https://github.com/user-attachments/assets/11950728-93e6-4d9e-9d8c-dba613a84a2c" /> |<img width="320" height="180" alt="image" src="https://github.com/user-attachments/assets/7bbc990a-3e9a-457a-8e26-356f55e1c186" />|<img width="320" height="180" alt="image" src="https://github.com/user-attachments/assets/f44f0014-b495-4e20-af67-b6ca2581e1ff" />|
+
+| 일정생성/수정 | ai 채팅  |
+| ----- | ------- |
+| <img width="400" height="250" alt="image" src="https://github.com/user-attachments/assets/cd13b699-0f13-4427-95a2-8828e8738034" /> |
+
+
 
 ## 🚀 배포링크
 [여기에서 실제 서비스를 체험해보세요](https://aibe-3-project1-team5.vercel.app/) 🚀
@@ -57,14 +63,14 @@ AI 챗봇을 통해 사용자 맞춤 여행 일정 자동 생성
 
 ## 👩‍💻 개발자 소개 / 역할
 
-| 개발자 | 담당 기능 | GitHub |
-|--------|-----------|---------|
-| 김도하 |  사용자 인증, 보안 | [@doha-kim](https://github.com/doha-kim) |
-| 이연서 |  메인 화면, 여행지 리스트 | [@yeonseo-lee](https://github.com/yeonseo-lee) |
-| 임창기 |  AI 챗봇, 추천 시스템 | [@changki-lim](https://github.com/changki-lim) |
-| 박세웅 |  일정 생성/관리, 지도 API | [@sewoong-park](https://github.com/sewoong-park) |
-| 주권영 |  여행지 상세 페이지 | [@kwonyoung-ju](https://github.com/kwonyoung-ju) |
-| 최원제 | 후기 시스템, 파일 업로드 | [@wonje-choi](https://github.com/wonje-choi) |
+| 개발자 | 담당 기능 | 
+|--------|-----------|
+| 김도하 |  사용자 인증, 보안 |
+| 이연서 |  메인 화면, 여행지 리스트 | 
+| 임창기 |  AI 챗봇, 추천 시스템 | 
+| 박세웅 |  일정 생성/관리, 지도 API | 
+| 주권영 |  여행지 상세 페이지 |
+| 최원제 | 후기 시스템, 파일 업로드 | 
 
 ## 💻 개발 환경
 ```
@@ -102,9 +108,9 @@ OS:  Windows, macOS
 
 
 ### 주요 테이블
-- `profile` - 사용자 정보 및 프로필
+- `profiles` - 사용자 정보 및 프로필
 - `travels` - 여행지 마스터 데이터
-- `travel_plan` - 사용자 여행 계획
+- `travel_schdule` - 사용자 여행 계획
 - `review` - 여행지 후기 및 평점
 - `chat_sessions` - AI 프롬프트 관련
 
